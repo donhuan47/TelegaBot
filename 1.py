@@ -7,54 +7,48 @@ datetime.now()
 
 bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
 
+db=sqlite3.connect('dbold.db'); sql=db.cursor()
 		
 # Create main keyboard
 markup=types.ReplyKeyboardMarkup(resize_keyboard=True)
-item1=types.KeyboardButton('Уведомление начала и конца уроков')
-item2=types.KeyboardButton('Ответь на вопрос')
-item3=types.KeyboardButton('Наши контакты')
-item4=types.KeyboardButton('Последние новости')
-item5=types.KeyboardButton('Наши фотографии')
-item6=types.KeyboardButton('Отгадай число')
+item1=types.KeyboardButton('Уведомление начала и конца уроков');
+item2=types.KeyboardButton('Ответь на вопрос');   item3=types.KeyboardButton('Наши контакты');
+item4=types.KeyboardButton('Последние новости');  item5=types.KeyboardButton('Наши фотографии');
+item6=types.KeyboardButton('Отгадай число');
 item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
-item8=types.KeyboardButton('Лучшие ученики')
-item9=types.KeyboardButton('Хочу сказать')
-item10=types.KeyboardButton('Голосоваение')
-item11=types.KeyboardButton('Интересный факт')
+item8=types.KeyboardButton('Лучшие ученики');  item9=types.KeyboardButton('Хочу сказать');
+item10=types.KeyboardButton('Голосоваение');   item11=types.KeyboardButton('Интересный факт')
 markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11)
-
-# Create second keyboard
-markup2=types.ReplyKeyboardMarkup(resize_keyboard=True)
-item1=types.KeyboardButton('1')
-item2=types.KeyboardButton('2')
-item3=types.KeyboardButton('3')
-item4=types.KeyboardButton('4')
-item5=types.KeyboardButton('5')
-item6=types.KeyboardButton('BackToMain')
-markup2.add(item1, item2, item3, item4, item5, item6 )
-
-markup3=types.ReplyKeyboardMarkup(resize_keyboard=True)
-item1=types.KeyboardButton('Будильник звонков')
-item2=types.KeyboardButton('Ответь на вопрос')
-item3=types.KeyboardButton('Наши контакты')
-item4=types.KeyboardButton('Наши новости')
-item5=types.KeyboardButton('Наши фотографии')
-item6=types.KeyboardButton('Отгадай число')
-markup3.add(item1, item2, item3, item4, item5, item6 )
-
-
-
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     sti=open('sti.tgs','rb')
     bot.send_sticker(message.chat.id,sti)
     bot.send_message(message.chat.id,
-     'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),parse_mode='html',
-                     reply_markup=markup #add keyboard to message
-                     )
-
-
+     'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),
+                     reply_markup=markup ) #add keyboard to message
+                    
+@bot.message_handler(commands=['addnews']) #КОМАНДА ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
+def addnews_step1(message):
+ markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+ markup.add('1', '2','3','4','5')
+ msg =bot.reply_to(message,'Выбери важность новости', reply_markup=markup )
+ bot.register_next_step_handler(msg, addnews_step2)
+def addnews_step2(message):
+ global nn; nn=message.text; # запоминаем номер новости в глобальной переменной
+ my_news=bot.reply_to(message, 'Введи новость')
+ bot.register_next_step_handler(my_news, addnews_step3)
+def addnews_step3(my_news):
+ bot.send_message(my_news.chat.id,'Введена новость: '+my_news.text+ ' Важность новости '+ nn )
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
+ sql.execute("INSERT INTO `news`(id, news) VALUES ( NULL, (?))",(my_news.text,))#ЗПТ ОБЯЗАТЕЛЬНА ТК нужен кортеж
+ db.commit()
+ news=sql.execute(' SELECT * FROM `news` ').fetchall();
+ for n in news:  print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ 
+   
+ 
+    
 isRunning=False
 @bot.message_handler(content_types=['text'])
 def lalala(message):
@@ -65,8 +59,8 @@ def lalala(message):
 
     bot.send_message(message.chat.id,"Сейчас " + str(datetime.now()))
  elif message.text=='BackToMain':
-    bot.send_message(message.chat.id, '4444', reply_markup=markup3) # ПОЧЕМУ НЕ ВОЗВРАЩАЕТСЯ ГЛАВНАЯ КЛАВА markup
-         
+   # bot.send_message(message.chat.id, '4444', reply_markup=markup3) # ПОЧЕМУ НЕ ВОЗВРАЩАЕТСЯ ГЛАВНАЯ КЛАВА markup
+   pass      
  elif message.text=='Ответь на вопрос':
     markup = types.InlineKeyboardMarkup(row_width=2)
     item1 = types.InlineKeyboardButton("КОНЕЧНО", callback_data='good')
@@ -91,28 +85,33 @@ def lalala(message):
           isRunning = True
 
  elif message.text=='🥕Сегодня в столовой🥕':
-    db=sqlite3.connect('db.db'); sql=db.cursor()
-    zavtrak=sql.execute(f'SELECT `zavtrak` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
-    obed=sql.execute(f'SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
-    bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК:</u></b>'+ zavtrak +"\n<b><u>ОБЕД:</u></b>"+ obed, parse_mode='html')
+  db=sqlite3.connect('db.db'); sql=db.cursor()
+#   sql.execute('CREATE TABLE IF NOT EXISTS stolovaya (id INTEGER PRIMARY KEY AUTOINCREMENT  DEFAULT (1) , zavtrak TEXT  DEFAULT ZZZ, obed TEXT  DEFAULT ZZZ)');
+#   zavtrak=sql.execute('SELECT `zavtrak` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
+#   obed=sql.execute('SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
+#   bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК:</u></b>'+ zavtrak +"\n<b><u>ОБЕД:</u></b>"+ obed, parse_mode='html')
     
  elif message.text=='Интересный факт':
-    db=sqlite3.connect('db.db'); sql=db.cursor()
-   # sql.execute('CREATE TABLE IF NOT EXISTS users(login TEXT,password TEXT,cash BIGINT, rings BOOLEAN)');    db.commit()
-   # sql.execute(f"INSERT INTO users VALUES ('{message.chat.id}','{666}',{0},{True})")
-    num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
-    fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `fact_id` = {random.randint(1,num_facts)}').fetchall()
+   db=sqlite3.connect('db.db'); sql=db.cursor()
+#   sql.execute('CREATE TABLE IF NOT EXISTS facts (fact_id INTEGER PRIMARY KEY AUTOINCREMENT, fact TEXT)');
+#    # sql.execute(f"INSERT INTO users VALUES ('{message.chat.id}','{666}',{0},{True})")
+#   num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
+#   fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `fact_id` = {random.randint(1,num_facts)}').fetchall()
    # db.commit()     
      
-    bot.send_message(message.chat.id, fact, parse_mode='html')
+  #bot.send_message(message.chat.id, fact, parse_mode='html')
     
  elif message.text=='Последние новости':
-    db=sqlite3.connect('db.db'); sql=db.cursor()
-    news=sql.execute(' SELECT `news` FROM `news` ').fetchall() 
-    for n in news:   
-     bot.send_message(message.chat.id, n  )  
-    
-    
+  db=sqlite3.connect('db.db'); sql=db.cursor()
+  sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
+  sql.execute("INSERT INTO news VALUES ( NULL, 'HELLO')")
+  sql.execute("INSERT INTO news VALUES ( NULL, 'World')")
+  db.commit()
+  news=sql.execute(' SELECT * FROM `news` ').fetchall() 
+  for n in news:   
+   bot.send_message(message.chat.id, n [1] )  
+   print(n) 
+  pass
  
  
  else:
