@@ -16,7 +16,7 @@ item3=types.KeyboardButton('Наши контакты')
 item4=types.KeyboardButton('Последние новости')
 item5=types.KeyboardButton('Наши фотографии')
 item6=types.KeyboardButton('Отгадай число')
-item7=types.KeyboardButton('Сегодня в столовой')
+item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
 item8=types.KeyboardButton('Лучшие ученики')
 item9=types.KeyboardButton('Хочу сказать')
 item10=types.KeyboardButton('Голосоваение')
@@ -50,7 +50,7 @@ def welcome(message):
     sti=open('sti.tgs','rb')
     bot.send_sticker(message.chat.id,sti)
     bot.send_message(message.chat.id,
-                     'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу и я помогу тебе'.format(message.from_user,bot.get_me()),parse_mode='html',
+     'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),parse_mode='html',
                      reply_markup=markup #add keyboard to message
                      )
 
@@ -62,11 +62,7 @@ def lalala(message):
    # bot.send_message(message.chat.id,message.text)
    #if message.chat.type=='private':
  if message.text=='Уведомление начала и конца уроков':
-#     db=sqlite3.connect('db.db'); sql=db.cursor()
-#     sql.execute('CREATE TABLE IF NOT EXISTS users(login TEXT,password TEXT,cash BIGINT, rings BOOLEAN)')
-#     db.commit()
-#     sql.execute(f"INSERT INTO users VALUES ('{message.chat.id}','{666}',{0},{True})")
-#     db.commit()
+
     bot.send_message(message.chat.id,"Сейчас " + str(datetime.now()))
  elif message.text=='BackToMain':
     bot.send_message(message.chat.id, '4444', reply_markup=markup3) # ПОЧЕМУ НЕ ВОЗВРАЩАЕТСЯ ГЛАВНАЯ КЛАВА markup
@@ -90,18 +86,42 @@ def lalala(message):
          global isRunning; isRunning = False
          if not isRunning:
           global x; x=random.randint(1,100) ; print(x)
-          msg = bot.send_message(message.chat.id, 'Введи число?')
+          msg = bot.send_message(message.chat.id, 'Введи число (0->for STOP)')
           bot.register_next_step_handler(msg, check)
           isRunning = True
 
- elif message.text=='Сегодня в столовой':
-    bot.send_message(message.chat.id,  '<i><b><u>МЕНЮ:</u></b></i>\n\n<b>Завтрак</b>\nБулка 10₽\nКомпот 5₽\n\n<b>Обед</b>\nСуп 30₽\nГречка 17₽ ',parse_mode='html')       
+ elif message.text=='🥕Сегодня в столовой🥕':
+    db=sqlite3.connect('db.db'); sql=db.cursor()
+    zavtrak=sql.execute(f'SELECT `zavtrak` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
+    obed=sql.execute(f'SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
+    bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК:</u></b>'+ zavtrak +"\n<b><u>ОБЕД:</u></b>"+ obed, parse_mode='html')
+    
+ elif message.text=='Интересный факт':
+    db=sqlite3.connect('db.db'); sql=db.cursor()
+   # sql.execute('CREATE TABLE IF NOT EXISTS users(login TEXT,password TEXT,cash BIGINT, rings BOOLEAN)');    db.commit()
+   # sql.execute(f"INSERT INTO users VALUES ('{message.chat.id}','{666}',{0},{True})")
+    num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
+    fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `fact_id` = {random.randint(1,num_facts)}').fetchall()
+   # db.commit()     
+     
+    bot.send_message(message.chat.id, fact, parse_mode='html')
+    
+ elif message.text=='Последние новости':
+    db=sqlite3.connect('db.db'); sql=db.cursor()
+    news=sql.execute(' SELECT `news` FROM `news` ').fetchall() 
+    for n in news:   
+     bot.send_message(message.chat.id, n  )  
+    
+    
+ 
+ 
  else:
     bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
 	   
 def check(message):
+    if message.text=='0': isRunning = False; return
     if not message.text.isdigit()  :
-        msg = bot.send_message(message.chat.id, 'Enter number 1..100 again->')
+        msg = bot.send_message(message.chat.id, 'Enter number 1..100 again (0 for end Game)->')
         bot.register_next_step_handler(msg, check) 
         return
     y=int(message.text)
