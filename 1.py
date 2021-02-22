@@ -3,11 +3,12 @@ from telebot import types
 import random
 import sqlite3
 from datetime import datetime, time, date
+
 datetime.now()
 
 bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
 
-db=sqlite3.connect('dbold.db'); sql=db.cursor()
+#db=sqlite3.connect('dbold.db'); sql=db.cursor()
 		
 # Create main keyboard
 markup=types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -17,8 +18,8 @@ item4=types.KeyboardButton('Последние новости');  item5=types.Ke
 item6=types.KeyboardButton('Отгадай число');
 item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
 item8=types.KeyboardButton('Лучшие ученики');  item9=types.KeyboardButton('Хочу сказать');
-item10=types.KeyboardButton('Голосоваение');   item11=types.KeyboardButton('Интересный факт')
-markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11)
+item10=types.KeyboardButton('Голосоваение'); item11=types.KeyboardButton('Интересный факт'); item12=types.KeyboardButton('Викторина...Стена...Чат')
+markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11, item12)
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
@@ -27,7 +28,8 @@ def welcome(message):
     bot.send_message(message.chat.id,
      'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),
                      reply_markup=markup ) #add keyboard to message
-                    
+
+#------------------------НАЧАЛО РАБОТЫ С НОВОСТЯМИ
 @bot.message_handler(commands=['addnews','add']) #КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
 def addnews_step1(message):
  markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
@@ -48,9 +50,7 @@ def addnews_step3(my_news):
  news=sql.execute(' SELECT * FROM `news` ').fetchall();
  for n in news:
   print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ после добавления новости
-
- 
-   
+  
 @bot.message_handler(commands=['deletenews','удалить','delete']) #КОМАНДы УДАЛЕНИЯ НОВОСТИ  (ДЛЯ АДМИНИСТРАТОРОВ)
 def delete_news(message):
  if message.text.isdigit():
@@ -72,7 +72,54 @@ def delete_news_step2(message):
  sql.execute('DELETE FROM news WHERE id=(?)',(int(message.text),))
  db.commit()
  delete_news(message)
+#------------------------КОНЕЦ РАБОТЫ С НОВОСТЯМИ
+
+#------------------------НАЧАЛО РАБОТЫ С ИНТЕРЕСНЫМИ ФАКТАМИ
+@bot.message_handler(commands=['addfact','addf']) #КОМАНДЫ ДОБАВЛЕНИЯ ИНТЕРЕСНОГО ФАКТА
+def addf(message):
+ if message.text=='0':  bot.send_message(message.chat.id,'OK', reply_markup=markup );return # Одноразовая клавиатура убирается
+ nf=bot.reply_to(message, 'Введи интересный факт')
+ bot.register_next_step_handler(nf, addf2)
+def addf2(my_fact):
+# bot.send_message(my_news.chat.id,'Введена новость: '+my_news.text+ '\n Важность новости '+ nn, reply_markup=markup  )
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
+ sql.execute("INSERT INTO `facts`(id, fact) VALUES ( NULL, (?))",(my_fact.text,))#ЗПТ ОБЯЗАТЕЛЬНА ТК нужен кортеж
+ db.commit()
+ factsList=sql.execute(' SELECT * FROM `facts` ').fetchall();
+ for n in factsList:
+  print( n  )  # ПЕЧАТЬ ВСЕХ Фактов после добавления новости
+   
+@bot.message_handler(commands=['delfacat','delf','deletef']) #КОМАНДЫ Удаления ИНТЕРЕСНОГО ФАКТА)
+def delf(message):
+ if message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Удалили '+message.text)
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
+ factsList=sql.execute(' SELECT * FROM `facts` ').fetchall();
+ for n in factsList:
+  print( n  )  # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
+  bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ' )
+ msg =bot.reply_to(message,'Какую новость удалить. 0 = ОТМЕНА')
+ bot.register_next_step_handler(msg, delf2)
+def delf2(message):
+ if message.text=='0': bot.send_message(message.chat.id, 'Удаление отменено' ); return
+ if not message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Надо ввести id факта для удаления (0 для отмены)->')
+  bot.register_next_step_handler(msg, delf2) ;  return
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('DELETE FROM facts WHERE id=(?)',(int(message.text),))
+ db.commit()
+ delf(message)
  
+def view_fact(message):
+    db=sqlite3.connect('db.db'); sql=db.cursor()
+    sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
+    num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
+    fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `id` = {random.randint(1,num_facts)}').fetchall()
+    bot.send_message(message.chat.id, fact)
+    
+#------------------------КОНЕЦ РАБОТЫ С ИНТЕРЕСНЫМИ ФАКТАМИ 
      
   
 isRunning=False
@@ -83,7 +130,7 @@ def lalala(message):
    #if message.chat.type=='private':
  if message.text=='Уведомление начала и конца уроков':
 
-    bot.send_message(message.chat.id,"Сейчас " + str(datetime.now()))
+    bot.send_message(message.chat.id,"Сейчас " + str(datetime.now())+'Скоро здесь будет интересный функционал')
  elif message.text=='BackToMain':
    # bot.send_message(message.chat.id, '4444', reply_markup=markup3) # ПОЧЕМУ НЕ ВОЗВРАЩАЕТСЯ ГЛАВНАЯ КЛАВА markup
    pass      
@@ -95,7 +142,7 @@ def lalala(message):
     bot.send_message(message.chat.id, 'Любишь информатику?', reply_markup=markup)
 
  elif message.text=='Наши контакты':
-    bot.send_message(message.chat.id, 'Наш телефон +79999999999☺\nАдрес: г.Москва')
+    bot.send_message(message.chat.id, 'Наш телефон +7       \nАдрес: г.Москва')
          
  elif message.text=='Наши фотографии':
     pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic); bot.send_message(message.chat.id,  'HELLO)')
@@ -118,15 +165,8 @@ def lalala(message):
 #   bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК:</u></b>'+ zavtrak +"\n<b><u>ОБЕД:</u></b>"+ obed, parse_mode='html')
     
  elif message.text=='Интересный факт':
-   db=sqlite3.connect('db.db'); sql=db.cursor()
-#   sql.execute('CREATE TABLE IF NOT EXISTS facts (fact_id INTEGER PRIMARY KEY AUTOINCREMENT, fact TEXT)');
-#    # sql.execute(f"INSERT INTO users VALUES ('{message.chat.id}','{666}',{0},{True})")
-#   num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
-#   fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `fact_id` = {random.randint(1,num_facts)}').fetchall()
-   # db.commit()     
-     
-  #bot.send_message(message.chat.id, fact, parse_mode='html')
-    
+  view_fact(message)
+  
  elif message.text=='Последние новости':
   db=sqlite3.connect('db.db'); sql=db.cursor()
   sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
