@@ -28,27 +28,53 @@ def welcome(message):
      'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),
                      reply_markup=markup ) #add keyboard to message
                     
-@bot.message_handler(commands=['addnews']) #КОМАНДА ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
+@bot.message_handler(commands=['addnews','add']) #КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
 def addnews_step1(message):
  markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
- markup.add('1', '2','3','4','5')
+ markup.add('1', '2','3','4','5','ОТМЕНА')
  msg =bot.reply_to(message,'Выбери важность новости', reply_markup=markup )
  bot.register_next_step_handler(msg, addnews_step2)
 def addnews_step2(message):
- global nn; nn=message.text; # запоминаем номер новости в глобальной переменной
+ if message.text=='ОТМЕНА':  bot.send_message(message.chat.id,'OK', reply_markup=markup );return # Одноразовая клавиатура убирается
+ global nn; nn=message.text; # запоминаем важность новости в глобальной переменной
  my_news=bot.reply_to(message, 'Введи новость')
  bot.register_next_step_handler(my_news, addnews_step3)
 def addnews_step3(my_news):
- bot.send_message(my_news.chat.id,'Введена новость: '+my_news.text+ ' Важность новости '+ nn )
+ bot.send_message(my_news.chat.id,'Введена новость: '+my_news.text+ '\n Важность новости '+ nn, reply_markup=markup  )
  db=sqlite3.connect('db.db'); sql=db.cursor()
  sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
  sql.execute("INSERT INTO `news`(id, news) VALUES ( NULL, (?))",(my_news.text,))#ЗПТ ОБЯЗАТЕЛЬНА ТК нужен кортеж
  db.commit()
  news=sql.execute(' SELECT * FROM `news` ').fetchall();
- for n in news:  print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ 
-   
+ for n in news:
+  print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ после добавления новости
+
  
-    
+   
+@bot.message_handler(commands=['deletenews','удалить','delete']) #КОМАНДы УДАЛЕНИЯ НОВОСТИ  (ДЛЯ АДМИНИСТРАТОРОВ)
+def delete_news(message):
+ if message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Удалили '+message.text)
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
+ news=sql.execute(' SELECT * FROM `news` ').fetchall();
+ for n in news:
+  print( n  )  # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
+  bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ' )
+ msg =bot.reply_to(message,'Какую новость удалить. 0 = ОТМЕНА')
+ bot.register_next_step_handler(msg, delete_news_step2)
+def delete_news_step2(message):
+ if message.text=='0': bot.send_message(message.chat.id, 'Удаление отменено', reply_markup=markup ); return
+ if not message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Надо ввести id новости для удаления (0 для отмены)->')
+  bot.register_next_step_handler(msg, delete_news_step2) ;  return
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('DELETE FROM news WHERE id=(?)',(int(message.text),))
+ db.commit()
+ delete_news(message)
+ 
+     
+  
 isRunning=False
 @bot.message_handler(content_types=['text'])
 def lalala(message):
@@ -104,15 +130,10 @@ def lalala(message):
  elif message.text=='Последние новости':
   db=sqlite3.connect('db.db'); sql=db.cursor()
   sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
-  sql.execute("INSERT INTO news VALUES ( NULL, 'HELLO')")
-  sql.execute("INSERT INTO news VALUES ( NULL, 'World')")
-  db.commit()
   news=sql.execute(' SELECT * FROM `news` ').fetchall() 
   for n in news:   
    bot.send_message(message.chat.id, n [1] )  
    print(n) 
-  pass
- 
  
  else:
     bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
