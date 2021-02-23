@@ -4,7 +4,8 @@ import random
 import sqlite3
 from datetime import datetime, time, date
 
-datetime.now()
+print(datetime.now()); #print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
+print (datetime.strftime(datetime.now(), "%Y.%m.%d") )
 
 bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
 
@@ -64,7 +65,7 @@ def delete_news(message):
  msg =bot.reply_to(message,'Какую новость удалить. 0 = ОТМЕНА')
  bot.register_next_step_handler(msg, delete_news_step2)
 def delete_news_step2(message):
- if message.text=='0': bot.send_message(message.chat.id, 'Удаление отменено', reply_markup=markup ); return
+ if message.text=='0': bot.send_message(message.chat.id, 'Удаление окончено', reply_markup=markup ); return
  if not message.text.isdigit():
   msg = bot.send_message(message.chat.id, 'Надо ввести id новости для удаления (0 для отмены)->')
   bot.register_next_step_handler(msg, delete_news_step2) ;  return
@@ -72,6 +73,14 @@ def delete_news_step2(message):
  sql.execute('DELETE FROM news WHERE id=(?)',(int(message.text),))
  db.commit()
  delete_news(message)
+ 
+def latest_news(message):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
+ news=sql.execute(' SELECT * FROM `news` ').fetchall() 
+ for n in news:   
+  bot.send_message(message.chat.id, n [1] )  
+  print(n) 
 #------------------------КОНЕЦ РАБОТЫ С НОВОСТЯМИ
 
 #------------------------НАЧАЛО РАБОТЫ С ИНТЕРЕСНЫМИ ФАКТАМИ
@@ -121,6 +130,65 @@ def view_fact(message):
     
 #------------------------КОНЕЦ РАБОТЫ С ИНТЕРЕСНЫМИ ФАКТАМИ 
      
+#------------------------НАЧАЛО РАБОТЫ С МЕНЮ СТОЛОВОЙ
+
+@bot.message_handler(commands=['addmeal','meal','newmeal']) #КОМАНДЫ ДОБАВЛЕНИЯ БЛЮДА В БД
+def addmeal(message):
+ if message.text=='0':  bot.send_message(message.chat.id,'OK' );return
+ if message.text.isdigit(): bot.send_message(message.chat.id,'OK' )
+ meal_name=bot.reply_to(message, 'Введите название нового блюда, Цену (через запятую)')
+ bot.register_next_step_handler(meal_name, registermeal)
+def registermeal(new_meal):
+ meal_price=bot.reply_to(new_meal, 'Введите цену блюда. 0=ОТМЕНА')
+ #bot.register_next_step_handler(meal_name, addmeal2)
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS stolovaya(id INTEGER PRIMARY KEY AUTOINCREMENT, meal TEXT, price REAL, mass INTEGER)');
+ sql.execute("INSERT INTO `stolovaya`(meal, price) VALUES ((?),(?))", (new_meal.text.split(',')) ) 
+ db.commit()
+ lastAdded=sql.execute(' SELECT * FROM `stolovaya` WHERE id= last_insert_rowid() ').fetchall();
+ for n in lastAdded:
+  print( n  )  # ПЕЧАТЬ последненей записи блюда
+ bot.register_next_step_handler(meal_price, addmeal)
+ 
+@bot.message_handler(commands=['showmeals','vsebluda','viewmeals','allmeals']) #КОМАНДЫ ПОКАЗА ВСЕХ БЛЮД ЗАПИСАННЫХ В БД
+def show_all_meals_inDB(message):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS stolovaya(id INTEGER PRIMARY KEY AUTOINCREMENT, meal TEXT, price REAL, mass INTEGER)');
+ allmeals=sql.execute("SELECT * FROM stolovaya ORDER BY meal DESC" ).fetchall()
+ for n in allmeals:
+  bot.send_message(message.chat.id, f'<b>id {n[0]}-></b>--> <b>{n[1]}</b> Цена: <b>{n[2]}</b> ' )
+
+@bot.message_handler(commands=['makemenu','composehmenu','viewmeals']) #КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ
+def makemenu(message):
+ show_all_meals_inDB(message)  # Покажем все доступные блюда с номерами
+ meals_numbers_for_free_breakfast = bot.reply_to(message, 'Введите номера блюд для бюджетного завтрака через запятую')
+ bot.register_next_step_handler(meals_numbers_for_free_breakfast, make_free_breakfast)
+def make_free_breakfast(numFreeBreakfast):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS menu(date TEXT PRIMARY KEY, breakfast_free TEXT, breakfast_pay TEXT, dinner_free TEXT,dinner_pay TEXT,snack_pay TEXT)');
+ #sql.execute( "INSERT INTO menu (date, breakfast_fr) VALUES(datetime('now'), datetime('now', 'localtime'))")#Встроенные функции даты SQLight не знаю как обрезать минуты итд
+ #sql.execute( "INSERT INTO menu (date, breakfast_fr) VALUES((?), datetime('now', 'localtime'))",(datetime.now(),))# Функция даты питоновская 
+ sql.execute( "INSERT INTO menu (date, breakfast_free) VALUES((?),(?))",(datetime.strftime(datetime.now(),"%Y.%m.%d"), numFreeBreakfast.text))#
+ db.commit()
+#  allmeals=sql.execute("SELECT * FROM stolovaya ORDER BY meal DESC" ).fetchall()
+#  for n in allmeals:
+#   bot.send_message(message.chat.id, f'<b>id {n[0]}-></b>--> <b>{n[1]}</b> Цена: <b>{n[2]}</b> ' )
+    
+def show_todays_menu(message):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS menu(date TEXT PRIMARY KEY, breakfast_free TEXT, breakfast_pay TEXT, dinner_free TEXT,dinner_pay TEXT,snack_pay TEXT)'); 
+ zavtrak_free_meal_numbers = sql.execute('SELECT `breakfast_free` FROM `menu`  ').fetchone()[0].split(',')
+ print (zavtrak_free_meal_numbers)
+#  sql.execute('CREATE TABLE IF NOT EXISTS stolovaya(id INTEGER PRIMARY KEY AUTOINCREMENT, meal TEXT, price FLOAT, mass INTEGER)');
+ zavtrak_free_sum = ''  
+ for i in zavtrak_free_meal_numbers:
+  zavtrak_free_sum+=str( sql.execute('SELECT `meal` FROM `stolovaya` WHERE `id` = (?)',(i,)).fetchone()[0])+" \n"
+ print ( zavtrak_free_sum)
+#  obed=sql.execute('SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
+ bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК БЮДЖЕТНЫЙ:</u></b>\n'+ zavtrak_free_sum +"\n<b><u>ОБЕД:</u></b>")
+    
+#------------------------КОНЕЦ РАБОТЫ С МЕНЮ СТОЛОВОЙ 
+     
   
 isRunning=False
 @bot.message_handler(content_types=['text'])
@@ -158,22 +226,13 @@ def lalala(message):
           isRunning = True
 
  elif message.text=='🥕Сегодня в столовой🥕':
-  db=sqlite3.connect('db.db'); sql=db.cursor()
-#   sql.execute('CREATE TABLE IF NOT EXISTS stolovaya (id INTEGER PRIMARY KEY AUTOINCREMENT  DEFAULT (1) , zavtrak TEXT  DEFAULT ZZZ, obed TEXT  DEFAULT ZZZ)');
-#   zavtrak=sql.execute('SELECT `zavtrak` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
-#   obed=sql.execute('SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
-#   bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК:</u></b>'+ zavtrak +"\n<b><u>ОБЕД:</u></b>"+ obed, parse_mode='html')
-    
+  show_todays_menu(message)
+  
  elif message.text=='Интересный факт':
   view_fact(message)
   
  elif message.text=='Последние новости':
-  db=sqlite3.connect('db.db'); sql=db.cursor()
-  sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
-  news=sql.execute(' SELECT * FROM `news` ').fetchall() 
-  for n in news:   
-   bot.send_message(message.chat.id, n [1] )  
-   print(n) 
+  latest_news(message)
  
  else:
     bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
