@@ -8,34 +8,68 @@ print(datetime.now()); #print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M
 print (datetime.strftime(datetime.now(), "%Y.%m.%d") )
 
 bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
-
+#print(dir (bot.get_chat_member))
 #db=sqlite3.connect('dbold.db'); sql=db.cursor()
-		
-# Create main keyboard
-markup=types.ReplyKeyboardMarkup(resize_keyboard=True)
-item1=types.KeyboardButton('Уведомление начала и конца уроков');
-item2=types.KeyboardButton('Ответь на вопрос');   item3=types.KeyboardButton('Наши контакты');
-item4=types.KeyboardButton('Последние новости');  item5=types.KeyboardButton('Наши фотографии');
-item6=types.KeyboardButton('Отгадай число');
-item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
-item8=types.KeyboardButton('Лучшие ученики');  item9=types.KeyboardButton('Хочу сказать');
-item10=types.KeyboardButton('Голосоваение'); item11=types.KeyboardButton('Интересный факт'); item12=types.KeyboardButton('Викторина...Стена...Чат')
-markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11, item12)
+#print (locals())		
+
+def make_keyboard():
+    global markup
+    markup=types.ReplyKeyboardMarkup(resize_keyboard=True)       # Create main keyboard
+    item1=types.KeyboardButton('Уведомление начала и конца уроков');
+    item2=types.KeyboardButton('Ответь на вопрос');   item3=types.KeyboardButton('Контакты');
+    item4=types.KeyboardButton('Последние новости');  item5=types.KeyboardButton('Помочь разобраться с заданием');
+    item6=types.KeyboardButton('Отгадай число');
+    item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
+    item8=types.KeyboardButton('Лучшие ученики');  item9=types.KeyboardButton('Личный кабинет');
+    item10=types.KeyboardButton('Голосоваение'); item11=types.KeyboardButton('Интересный факт');
+    item12=types.KeyboardButton('Викторина'); item13=types.KeyboardButton('Стена ваших объявлений')
+    markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11, item12, item13)
+make_keyboard()
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    sti=open('sti.tgs','rb')
-    bot.send_sticker(message.chat.id,sti)
+ sti=open('sti.tgs','rb');    bot.send_sticker(message.chat.id,sti); log()
+ print(message.from_user.id)
+ db=sqlite3.connect('db.db'); sql=db.cursor() ; # print( message  )  
+ sql.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY , name TEXT, score INTEGER DEFAULT (0), grade INTEGER)')
+ result=sql.execute(' SELECT * FROM users WHERE id= (?) ', (message.from_user.id,)).fetchall();
+ if len(result)==0: # ЕСЛИ ПОЛЬЗОВАТЕЛЯ НЕТ В БД, ЗАНОСИМ ЕГО В БД
+    markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup2.add('1','2','3','4','5','6','7','8','9','10','11','Учитель','Другое')
+    msg=bot.send_message(message.chat.id,
+     """Здравствуйте, {0.first_name}.
+      Вы тут первый раз.\n С вами говорит {1.first_name}. Я пока на стадии разработки.
+      Укажите в каком классе вы учитесь""".format(message.from_user,bot.get_me()),  reply_markup=markup2 )
+    bot.register_next_step_handler(msg, reg_user)
+ else:          #  Пользователь уже есть в БД
+    #make_keyboard()
+    
     bot.send_message(message.chat.id,
-     'Здравствуйте, {0.first_name}!\n я <b>{1.first_name}</b>,  нажми на кнопки снизу для получения информации'.format(message.from_user,bot.get_me()),
-                     reply_markup=markup ) #add keyboard to message
+     f"""Здравствуйте, {message.from_user.first_name}.
+      Рады видеть вас снова.\n """,  reply_markup=markup )
+def reg_user(message):   # Добавляем нового пользователя и его класс в БД
+    db=sqlite3.connect('db.db'); sql=db.cursor() ;
+    if message.text=='Учитель':  message.text=0  # Учитель регистрируется под 0 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
+    sql.execute("INSERT INTO users (id, name, grade) VALUES (?, ?, ?)", (message.from_user.id, message.from_user.first_name, int(message.text)))
+    
+    db.commit(); #print(message.from_user.id, message.from_user.first_name, int(message.text) )
+    bot.send_message(message.chat.id, "Зарегистрировали вас! Нажмите кнопку снизу",  reply_markup=markup )
+    
+@bot.message_handler(commands=['admin'])
+def admin(message):
+    bot.send_message(message.chat.id,"""КОММАНДЫ АДМИНИСТРАТОРОВ:
+/addnews, /add - Добавить новость
+/deletenews ,/delete КОМАНДы УДАЛЕНИЯ НОВОСТИ
+/addfact, /addf КОМАНДЫ ДОБАВЛЕНИЯ ИНТЕРЕСНОГО ФАКТА
+""")
+    
 
 #------------------------НАЧАЛО РАБОТЫ С НОВОСТЯМИ
 @bot.message_handler(commands=['addnews','add']) #КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
 def addnews_step1(message):
  markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
  markup.add('1', '2','3','4','5','ОТМЕНА')
- msg =bot.reply_to(message,'Выбери важность новости', reply_markup=markup )
+ msg =bot.reply_to(message,'Выбери категорию новости (пока не имеет разницы)', reply_markup=markup )
  bot.register_next_step_handler(msg, addnews_step2)
 def addnews_step2(message):
  if message.text=='ОТМЕНА':  bot.send_message(message.chat.id,'OK', reply_markup=markup );return # Одноразовая клавиатура убирается
@@ -52,17 +86,16 @@ def addnews_step3(my_news):
  for n in news:
   print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ после добавления новости
   
-@bot.message_handler(commands=['deletenews','удалить','delete']) #КОМАНДы УДАЛЕНИЯ НОВОСТИ  (ДЛЯ АДМИНИСТРАТОРОВ)
+@bot.message_handler(commands=['deletenews','delete']) #КОМАНДы УДАЛЕНИЯ НОВОСТИ  (ДЛЯ АДМИНИСТРАТОРОВ)
 def delete_news(message):
  if message.text.isdigit():
   msg = bot.send_message(message.chat.id, 'Удалили '+message.text)
  db=sqlite3.connect('db.db'); sql=db.cursor()
  sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
  news=sql.execute(' SELECT * FROM `news` ').fetchall();
- for n in news:
-  print( n  )  # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
-  bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ' )
- msg =bot.reply_to(message,'Какую новость удалить. 0 = ОТМЕНА')
+ for n in news: # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
+    bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ' ); print( n  ) 
+ msg =bot.send_message(message.chat.id,'Какую новость удалить?\n Введите id\n Введи 0 для отмены')
  bot.register_next_step_handler(msg, delete_news_step2)
 def delete_news_step2(message):
  if message.text=='0': bot.send_message(message.chat.id, 'Удаление окончено', reply_markup=markup ); return
@@ -78,9 +111,7 @@ def latest_news(message):
  db=sqlite3.connect('db.db'); sql=db.cursor()
  sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news TEXT)')
  news=sql.execute(' SELECT * FROM `news` ').fetchall() 
- for n in news:   
-  bot.send_message(message.chat.id, n [1] )  
-  print(n) 
+ for n in news:     bot.send_message(message.chat.id, n [1] ) ;  print(n) 
 #------------------------КОНЕЦ РАБОТЫ С НОВОСТЯМИ
 
 #------------------------НАЧАЛО РАБОТЫ С ИНТЕРЕСНЫМИ ФАКТАМИ
@@ -139,17 +170,20 @@ def addmeal(message):
  meal_name=bot.reply_to(message, 'Введите название нового блюда, Цену (через запятую)')
  bot.register_next_step_handler(meal_name, registermeal)
 def registermeal(new_meal):
- meal_price=bot.reply_to(new_meal, 'Введите цену блюда. 0=ОТМЕНА')
- #bot.register_next_step_handler(meal_name, addmeal2)
- db=sqlite3.connect('db.db'); sql=db.cursor()
- sql.execute('CREATE TABLE IF NOT EXISTS stolovaya(id INTEGER PRIMARY KEY AUTOINCREMENT, meal TEXT, price REAL, mass INTEGER)');
- sql.execute("INSERT INTO `stolovaya`(meal, price) VALUES ((?),(?))", (new_meal.text.split(',')) ) 
- db.commit()
- lastAdded=sql.execute(' SELECT * FROM `stolovaya` WHERE id= last_insert_rowid() ').fetchall();
- for n in lastAdded:
-  print( n  )  # ПЕЧАТЬ последненей записи блюда
- bot.register_next_step_handler(meal_price, addmeal)
- 
+ try:
+     meal_price=bot.reply_to(new_meal, 'Введите цену блюда. 0=ОТМЕНА')
+     #bot.register_next_step_handler(meal_name, addmeal2)
+     db=sqlite3.connect('db.db'); sql=db.cursor()
+     sql.execute('CREATE TABLE IF NOT EXISTS stolovaya(id INTEGER PRIMARY KEY AUTOINCREMENT, meal TEXT, price REAL, mass INTEGER)');
+     sql.execute("INSERT INTO `stolovaya`(meal, price) VALUES ((?),(?))", (new_meal.text.split(',')) ) 
+     db.commit()
+     lastAdded=sql.execute(' SELECT * FROM `stolovaya` WHERE id= last_insert_rowid() ').fetchall();
+     for n in lastAdded:
+      print( n  )  # ПЕЧАТЬ последненей записи блюда
+     bot.register_next_step_handler(meal_price, addmeal)
+ except Exception as e:
+        bot.reply_to(message, 'oooops')
+        
 @bot.message_handler(commands=['showmeals','vsebluda','viewmeals','allmeals']) #КОМАНДЫ ПОКАЗА ВСЕХ БЛЮД ЗАПИСАННЫХ В БД
 def show_all_meals_inDB(message):
  db=sqlite3.connect('db.db'); sql=db.cursor()
@@ -187,8 +221,18 @@ def show_todays_menu(message):
 #  obed=sql.execute('SELECT `obed` FROM `stolovaya` WHERE `id` = 1').fetchall()[0][0]
  bot.send_message(message.chat.id, '<b>🍎🍉МЕНЮ:🍓🍊\n<u>ЗАВТРАК БЮДЖЕТНЫЙ:</u></b>\n'+ zavtrak_free_sum +"\n<b><u>ОБЕД:</u></b>")
     
-#------------------------КОНЕЦ РАБОТЫ С МЕНЮ СТОЛОВОЙ 
-     
+#------------------------КОНЕЦ РАБОТЫ С МЕНЮ СТОЛОВОЙ
+ 
+#------------------------НАЧАЛО РАБОТЫ С ЛИЧНЫМ КАБИНЕТОМ   
+def personal_cabinet(message):
+ db=sqlite3.connect('db.db'); sql=db.cursor() ;
+ # name TEXT, score INTEGER DEFAULT (0), grade INTEGER)
+ result=sql.execute('SELECT grade, score FROM users WHERE id= (?) ', (message.from_user.id,)).fetchone(); #print (result)
+ if result[0]==0:     add_text='Вы учитель'
+ else:     add_text=f'Вы ученик {result[0]} класса'
+ bot.send_message(message.chat.id,
+     f"""Вы авторизованы как, {message.from_user.first_name}\n{add_text}\n Ваш счет: {result[1]} очков. """) # 
+#------------------------КОНЕЦ РАБОТЫ С ЛИЧНЫМ КАБИНЕТОМ    
   
 isRunning=False
 @bot.message_handler(content_types=['text'])
@@ -199,9 +243,8 @@ def lalala(message):
  if message.text=='Уведомление начала и конца уроков':
 
     bot.send_message(message.chat.id,"Сейчас " + str(datetime.now())+'Скоро здесь будет интересный функционал')
- elif message.text=='BackToMain':
-   # bot.send_message(message.chat.id, '4444', reply_markup=markup3) # ПОЧЕМУ НЕ ВОЗВРАЩАЕТСЯ ГЛАВНАЯ КЛАВА markup
-   pass      
+ elif message.text=='Личный кабинет':
+  personal_cabinet(message)       
  elif message.text=='Ответь на вопрос':
     markup = types.InlineKeyboardMarkup(row_width=2)
     item1 = types.InlineKeyboardButton("КОНЕЧНО", callback_data='good')
@@ -209,13 +252,13 @@ def lalala(message):
     markup.add(item1, item2)
     bot.send_message(message.chat.id, 'Любишь информатику?', reply_markup=markup)
 
- elif message.text=='Наши контакты':
-    bot.send_message(message.chat.id, 'Наш телефон +7       \nАдрес: г.Москва')
+ elif message.text=='Контакты':
+    bot.send_message(message.chat.id, 'Наш телефон +7 \nАдрес: г.Москва\n Написать разработчику бота @hasanella')
          
- elif message.text=='Наши фотографии':
-    pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic); bot.send_message(message.chat.id,  'HELLO)')
+ elif message.text=='Помочь разобраться с заданием':
+    pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic); bot.send_message(message.chat.id,  'Подождите')
     pic=open('me2.jpg','rb'); bot.send_photo(message.chat.id,pic)
-    bot.send_message(message.chat.id,  'THIS IS ME')
+    bot.send_message(message.chat.id,  'В разработке')
 
  elif message.text=='Отгадай число':
          global isRunning; isRunning = False
@@ -273,8 +316,17 @@ def callback_inline(call):
  
     except Exception as e:
         print(repr(e))
- 
+
+def log(txt='', user='unknown'):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, logtext TEXT, logtime TEXT, user TEXT)')
+ if txt=='':
+  import traceback
+  txt=traceback.extract_stack(None, 2)[0][2] # ИМЯ функции из которой вызвали функцию log()
+  #print (txt)	
+ sql.execute('INSERT INTO logs (logtext, logtime, user ) VALUES (? ,?, ?)',(txt, datetime.now(), str(user)))
+ db.commit()
+
+
 # RUN   
-		   
-		   
 bot.polling(none_stop=True)
