@@ -10,26 +10,22 @@ print (datetime.strftime(datetime.now(), "%Y.%m.%d") )
 bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
 #print(dir (bot.get_chat_member))
 #db=sqlite3.connect('dbold.db'); sql=db.cursor()
-#print (locals())		
+#print (locals())
 
-def make_keyboard():
-    global markup
-    markup=types.ReplyKeyboardMarkup(resize_keyboard=True)       # Create main keyboard
-    item1=types.KeyboardButton('Уведомление начала и конца уроков');
-    item2=types.KeyboardButton('Ответь на вопрос');   item3=types.KeyboardButton('Контакты');
-    item4=types.KeyboardButton('Последние новости');  item5=types.KeyboardButton('Помочь разобраться с заданием');
-    item6=types.KeyboardButton('Отгадай число');
-    item7=types.KeyboardButton('🥕Сегодня в столовой🥕')
-    item8=types.KeyboardButton('Лучшие ученики');  item9=types.KeyboardButton('Личный кабинет');
-    item10=types.KeyboardButton('Голосоваение'); item11=types.KeyboardButton('Интересный факт');
-    item12=types.KeyboardButton('Викторина'); item13=types.KeyboardButton('Стена ваших объявлений')
-    markup.add(item1, item2, item3, item4, item5, item6,item7,item8,item9,item10,item11, item12, item13)
-make_keyboard()
+markup=types.ReplyKeyboardMarkup(resize_keyboard=True)       # Create main keyboard
+
+
+markup.add( 'Последние новости', 'Викторина (QUIZ)',         'Личный кабинет',
+            'Интересный факт',   'Стена ваших объявлений',   'Лучшие результаты',
+            'Голосоваение',      'Ответь на вопрос',         'Контакты', 
+            'Уведомление начала и конца уроков', 'Помошь',   '🥕Сегодня в столовой🥕')
+
+
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
  sti=open('sti.tgs','rb');    bot.send_sticker(message.chat.id,sti); log()
- print(message.from_user.id)
+# print(message.from_user.id) # Уникальный id юзера в телеге
  db=sqlite3.connect('db.db'); sql=db.cursor() ; # print( message  )  
  sql.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY , name TEXT, score INTEGER DEFAULT (0), grade INTEGER)')
  result=sql.execute(' SELECT * FROM users WHERE id= (?) ', (message.from_user.id,)).fetchall();
@@ -42,11 +38,9 @@ def welcome(message):
       Укажите в каком классе вы учитесь""".format(message.from_user,bot.get_me()),  reply_markup=markup2 )
     bot.register_next_step_handler(msg, reg_user)
  else:          #  Пользователь уже есть в БД
-    #make_keyboard()
-    
-    bot.send_message(message.chat.id,
+     bot.send_message(message.chat.id,
      f"""Здравствуйте, {message.from_user.first_name}.
-      Рады видеть вас снова.\n """,  reply_markup=markup )
+      Нажмите кнопку снизу.\n """,  reply_markup=markup )
 def reg_user(message):   # Добавляем нового пользователя и его класс в БД
     db=sqlite3.connect('db.db'); sql=db.cursor() ;
     if message.text=='Учитель':  message.text=0  # Учитель регистрируется под 0 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
@@ -55,12 +49,24 @@ def reg_user(message):   # Добавляем нового пользовате�
     db.commit(); #print(message.from_user.id, message.from_user.first_name, int(message.text) )
     bot.send_message(message.chat.id, "Зарегистрировали вас! Нажмите кнопку снизу",  reply_markup=markup )
     
-@bot.message_handler(commands=['admin'])
-def admin(message):
-    bot.send_message(message.chat.id,"""КОММАНДЫ АДМИНИСТРАТОРОВ:
-/addnews, /add - Добавить новость
-/deletenews ,/delete КОМАНДы УДАЛЕНИЯ НОВОСТИ
+@bot.message_handler(commands=['admin','test'])
+def admin_info(message):
+    bot.send_message(message.chat.id,"""<b>КОММАНДЫ АДМИНИСТРАТОРОВ бота:
+РАБОТА С ПОСЛЕДНИМИ НОВОСТЯМИ</b>
+/addnews, /add - Добавить актуальную  новость
+/deletenews ,/delete КОМАНДЫ УДАЛЕНИЯ ПОСЛЕДНИХ НОВОСТИ
+
+РАБОТА С РАЗДЕЛОМ ИНТЕРЕСНЫХ ФАКТОВ (планируется добавить англ\фран\нем выражения и идиомы для запоминания и накапливания очков)
 /addfact, /addf КОМАНДЫ ДОБАВЛЕНИЯ ИНТЕРЕСНОГО ФАКТА
+/delfacat /delf /deletef  КОМАНДЫ Удаления ИНТЕРЕСНОГО ФАКТА)
+
+РАБОТС С МЕНЮ СТОЛОВОЙ НА ТЕКУЩИЙ ДЕНЬ
+/makemenu /composehmenu /vewmeals /eda /food  КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ ДЛЯ СТОЛОВОЙ ИЗ БЛЮД В БД(вероятно, не удобный функционал. Можно упростить)
+/showmeals /vsebluda /viewmeals /allmeals #КОМАНДЫ ПОКАЗА ВСЕХ БЛЮД ЗАПИСАННЫХ В БД
+
+В викторине будут вопросы по темам разных предметов для человека из соответствующего класса
+Возможно сделать авторизацию по номеру телефона. БОТ на стадии разработки и продумывания необходимого функционала
+АКТИВИРОВАТЬ БОТА: /start
 """)
     
 
@@ -68,7 +74,7 @@ def admin(message):
 @bot.message_handler(commands=['addnews','add']) #КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
 def addnews_step1(message):
  markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
- markup.add('1', '2','3','4','5','ОТМЕНА')
+ markup.add('ДЛЯ УЧЕНИКОВ', 'ДЛЯ УЧИТЕЛЕЙ','ДЛЯ ВСЕХ','ОТМЕНА')
  msg =bot.reply_to(message,'Выбери категорию новости (пока не имеет разницы)', reply_markup=markup )
  bot.register_next_step_handler(msg, addnews_step2)
 def addnews_step2(message):
@@ -150,11 +156,10 @@ def delf2(message):
  db=sqlite3.connect('db.db'); sql=db.cursor()
  sql.execute('DELETE FROM facts WHERE id=(?)',(int(message.text),))
  db.commit()
- delf(message)
+ delf(message) 
  
 def view_fact(message):
     db=sqlite3.connect('db.db'); sql=db.cursor()
-    sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
     num_facts=sql.execute('SELECT COUNT (*) FROM `facts` ').fetchall()[0][0] # Количество записей с фактами из БД
     fact=sql.execute(f'SELECT `fact` FROM `facts` WHERE `id` = {random.randint(1,num_facts)}').fetchall()
     bot.send_message(message.chat.id, fact)
@@ -192,8 +197,8 @@ def show_all_meals_inDB(message):
  for n in allmeals:
   bot.send_message(message.chat.id, f'<b>id {n[0]}-></b>--> <b>{n[1]}</b> Цена: <b>{n[2]}</b> ' )
 
-@bot.message_handler(commands=['makemenu','composehmenu','viewmeals']) #КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ
-def makemenu(message):
+@bot.message_handler(commands=['makemenu','composehmenu','viewmeals','eda','food']) #КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ
+def make_food_menu(message):
  show_all_meals_inDB(message)  # Покажем все доступные блюда с номерами
  meals_numbers_for_free_breakfast = bot.reply_to(message, 'Введите номера блюд для бюджетного завтрака через запятую')
  bot.register_next_step_handler(meals_numbers_for_free_breakfast, make_free_breakfast)
@@ -231,20 +236,146 @@ def personal_cabinet(message):
  if result[0]==0:     add_text='Вы учитель'
  else:     add_text=f'Вы ученик {result[0]} класса'
  bot.send_message(message.chat.id,
-     f"""Вы авторизованы как, {message.from_user.first_name}\n{add_text}\n Ваш счет: {result[1]} очков. """) # 
-#------------------------КОНЕЦ РАБОТЫ С ЛИЧНЫМ КАБИНЕТОМ    
+     f"""Вы авторизованы как <b>{message.from_user.first_name}</b>\n{add_text}\n Ваш счет: {result[1]} очков.\nОтвечайте на вопросы викторины и запоминайте интересные факты, чтобы набрать очки.  """) # 
+#------------------------КОНЕЦ РАБОТЫ С ЛИЧНЫМ КАБИНЕТОМ
+ 
+#------------------------НАЧАЛО РАБОТЫ С ВИКТОРИНОЙ
+#current_question_id=0 # глобальная переменная для передачи номера вопроса в функцию проверки ответа КАК СДЕЛАТЬ БЕЗ НЕЕ
+def quiz(message):
+ if message.text=='Выход': welcome(message); return;
+ db=sqlite3.connect('db.db'); sql=db.cursor() ;
+ sql.execute('CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, time TEXT)')
+ sql.execute('CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN )')
+ num_questions=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
+ #global current_question_id
+ current_question_id=random.randint(1,num_questions) # Выбираем рандомный вопрос. НУЖНО ИЗ ТЕХ, КОТОРЫЕ ЕЩЕ НЕ ОТВЕЧАЛИ (И СНАЧАЛА НОВЫЕ?)
+ #print (current_question_id)
+ question=sql.execute(f'SELECT question FROM quiz WHERE id= {current_question_id}').fetchone()[0]
+ 
+ markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+ markup2.add('Пропустить','Выход')
+     
+ ans=bot.send_message(message.chat.id, "Введи ответ на вопрос:\n"+str(question), reply_markup=markup2 ) # Выведем  вопрос
+ bot.register_next_step_handler(ans, quiz_answer_check, current_question_id) # КАК ПЕРЕДАТЬ id  ВОПРОСА В функцию проверки без внешней переменной или сразу передавать ответ
+def quiz_answer_check(message, current_question_id):
+ if message.text=='Выход': welcome(message); return;
+ if message.text=='Пропустить':
+     # ТУТ ЗАНОСИМ ВОПРОС В СПИСОК ПРОСМОТРЕННЫХ
+     quiz(message); return; # Даем следующий вопрос и дальше по функции не идем
+     
+
+ 
+ #global current_question_id;
+ db=sqlite3.connect('db.db'); sql=db.cursor() ;  
+ correct_answer=sql.execute(f'SELECT answer FROM quiz WHERE id={current_question_id}').fetchone()[0] # Ответ на этот вопрос из БД
+ #print ('Номер вопроса', current_question_id, 'Ожидаемый ответ', correct_answer, 'Человек ввел', message.text )
+ if message.text==correct_answer: # Ответ верный прибавлячем очки
+  sql.execute('UPDATE users SET score=score+1 where id=(?)', (message.from_user.id,)); # Увеличиваем счет игроку на 1
+  db.commit()
+  current_score=sql.execute('SELECT score FROM users WHERE id=(?)', (message.from_user.id,)).fetchone()[0];#получаем актуальный счет юзера
+  markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
+  ans=bot.send_message(message.chat.id, f'Ответ верный. Вы заработали 1 очко. Теперь у вас {current_score} очков. Переходим к следующему вопросу или выход?', reply_markup=markup3 ) #ДАЛЕЕ НАДО добавить в аккаунт что вопрос уже был
+  bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
+ else:
+  markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
+  ans=bot.send_message(message.chat.id, 'Не совсем так. Вы не заработали очков на этом вопросе. Переходим к следующему вопросу или выход.', reply_markup=markup3) #ДАЛЕЕ НАДО добавить в аккаунт что вопрос уже был
+  bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
   
-isRunning=False
+""" Между тем, во многих случаях можно переписать запрос, чтобы не использовать
+вложенную выборку. Например, запрос:
+
+SELECT * FROM table1 WHERE id IN (SELECT id FROM table2);
+можно переписать следующим образом:
+
+SELECT table1.* FROM table1,table2 WHERE table1.id=table2.id;"""
+#------------------------КОНЕЦ РАБОТЫ С ВИКТОРИНОЙ 
+  
+#------------------------НАЧАЛО РАБОТЫ С ЧАТОМ (СТЕНОЙ ОБЪЯВЛЕНИЙ)
+@bot.message_handler(commands=['addnews','add']) #КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
+def addnews_step1(message):
+ markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+ markup.add('1', '2','3','4','5','ОТМЕНА')
+ msg =bot.reply_to(message,'Выбери категорию новости (пока не имеет разницы)', reply_markup=markup )
+ bot.register_next_step_handler(msg, addnews_step2)
+def addnews_step2(message):
+ if message.text=='ОТМЕНА':  bot.send_message(message.chat.id,'OK', reply_markup=markup );return # Одноразовая клавиатура убирается
+ global nn; nn=message.text; # запоминаем важность новости в глобальной переменной
+ my_news=bot.reply_to(message, 'Введи новость')
+ bot.register_next_step_handler(my_news, addnews_step3)
+def addnews_step3(my_news):
+ bot.send_message(my_news.chat.id,'Введена новость: '+my_news.text+ '\n Важность новости '+ nn, reply_markup=markup  )
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
+ sql.execute("INSERT INTO `news`(id, news) VALUES ( NULL, (?))",(my_news.text,))#ЗПТ ОБЯЗАТЕЛЬНА ТК нужен кортеж
+ db.commit()
+ news=sql.execute(' SELECT * FROM `news` ').fetchall();
+ for n in news:
+  print( n  )  # ПЕЧАТЬ ВСЕХ НОВОСТЕЙ после добавления новости
+  
+@bot.message_handler(commands=['deletenews','delete']) #КОМАНДы УДАЛЕНИЯ НОВОСТИ  (ДЛЯ АДМИНИСТРАТОРОВ)
+def delete_news(message):
+ if message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Удалили '+message.text)
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('CREATE TABLE IF NOT EXISTS `news` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `news` TEXT)')
+ news=sql.execute(' SELECT * FROM `news` ').fetchall();
+ for n in news: # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
+    bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ' ); print( n  ) 
+ msg =bot.send_message(message.chat.id,'Какую новость удалить?\n Введите id\n Введи 0 для отмены')
+ bot.register_next_step_handler(msg, delete_news_step2)
+def delete_news_step2(message):
+ if message.text=='0': bot.send_message(message.chat.id, 'Удаление окончено', reply_markup=markup ); return
+ if not message.text.isdigit():
+  msg = bot.send_message(message.chat.id, 'Надо ввести id новости для удаления (0 для отмены)->')
+  bot.register_next_step_handler(msg, delete_news_step2) ;  return
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ sql.execute('DELETE FROM news WHERE id=(?)',(int(message.text),))
+ db.commit()
+ delete_news(message)
+ 
+def show_wall(message):
+ db=sqlite3.connect('db.db'); sql=db.cursor()
+ 
+ markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+ markup.add('Добавить объявление', 'Редактировать объявлние','В главное меню')
+ 
+ sql.execute('CREATE TABLE IF NOT EXISTS wall (id INTEGER PRIMARY KEY AUTOINCREMENT, user_msg TEXT, date TEXT, user_id INTEGER)')
+ wall_msgs=sql.execute('SELECT  date, user_id, user_msg FROM wall ORDER BY id DESC  LIMIT 5').fetchall() # ВЫВОДИМ 15 последних СООБЩЕНИЙ (поправить тип даты для корректной сортировки. Хотя и так работает)
+ for m in reversed(wall_msgs):
+  name=sql.execute('SELECT name FROM users WHERE id=(?)',(m[1],)).fetchone()[0]; #print (name)    # ПОЛУЧАЕМ имя пользователя по id из таблицы users
+#   bot.send_message(message.chat.id, m [0]+''+ name +':\n'+m[2]);  #print(m)
+  bot.send_message(message.chat.id, f'date:{m[0]} <b>{name}</b> Написал:\n {m[2]}');  #print(m)
+ ans=bot.send_message(message.chat.id, "<b><u>Выберите действие></u></b>", reply_markup=markup  )
+ bot.register_next_step_handler(ans, add_wall_msg1) 
+def add_wall_msg1(message):
+ if message.text=='В главное меню': welcome(message); return;
+ elif message.text=='Добавить объявление':
+  ans=bot.send_message(message.chat.id, "Напишите сообщение" )
+  bot.register_next_step_handler(ans, add_wall_msg2)
+ else: welcome(message) 
+def add_wall_msg2(message):  
+  db=sqlite3.connect('db.db'); sql=db.cursor()
+  datetime.strftime(datetime.now(),"%Y.%m.%d")
+  sql.execute('INSERT INTO wall (user_msg, date, user_id) VALUES (? ,?, ?)',(message.text,datetime.strftime(datetime.now(),"%y%m%d|%H:%M:%S"), int(message.from_user.id)))
+  db.commit()
+  show_wall(message)
+
+
+#------------------------КОНЕЦ РАБОТЫ С ЧАТОМ (СТЕНОЙ ОБЪЯВЛЕНИЙ)
+
+
+
+
+
+
 @bot.message_handler(content_types=['text'])
 def lalala(message):
    # bot.reply_to(message, message.text)
    # bot.send_message(message.chat.id,message.text)
    #if message.chat.type=='private':
- if message.text=='Уведомление начала и конца уроков':
-
-    bot.send_message(message.chat.id,"Сейчас " + str(datetime.now())+'Скоро здесь будет интересный функционал')
- elif message.text=='Личный кабинет':
-  personal_cabinet(message)       
+ if message.text=='Уведомление начала и конца уроков':    bot.send_message(message.chat.id,"Сейчас " + str(datetime.now())+'Скоро здесь будет интересный функционал')
+ elif message.text=='Личный кабинет':  personal_cabinet(message)
+ elif message.text=='Викторина (QUIZ)':  quiz(message) 
  elif message.text=='Ответь на вопрос':
     markup = types.InlineKeyboardMarkup(row_width=2)
     item1 = types.InlineKeyboardButton("КОНЕЧНО", callback_data='good')
@@ -252,50 +383,20 @@ def lalala(message):
     markup.add(item1, item2)
     bot.send_message(message.chat.id, 'Любишь информатику?', reply_markup=markup)
 
- elif message.text=='Контакты':
-    bot.send_message(message.chat.id, 'Наш телефон +7 \nАдрес: г.Москва\n Написать разработчику бота @hasanella')
+ elif message.text=='Контакты': bot.send_message(message.chat.id, 'Наш телефон +7 \nАдрес: г.Москва\n Написать разработчику бота @hasanella')
          
  elif message.text=='Помочь разобраться с заданием':
     pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic); bot.send_message(message.chat.id,  'Подождите')
     pic=open('me2.jpg','rb'); bot.send_photo(message.chat.id,pic)
     bot.send_message(message.chat.id,  'В разработке')
 
- elif message.text=='Отгадай число':
-         global isRunning; isRunning = False
-         if not isRunning:
-          global x; x=random.randint(1,100) ; print(x)
-          msg = bot.send_message(message.chat.id, 'Введи число (0->for STOP)')
-          bot.register_next_step_handler(msg, check)
-          isRunning = True
+ elif message.text=='Стена ваших объявлений': show_wall(message)
+ elif message.text=='🥕Сегодня в столовой🥕':  show_todays_menu(message)
+ elif message.text=='Интересный факт':  view_fact(message)
+ elif message.text=='Последние новости':  latest_news(message)
+ else:    bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
 
- elif message.text=='🥕Сегодня в столовой🥕':
-  show_todays_menu(message)
-  
- elif message.text=='Интересный факт':
-  view_fact(message)
-  
- elif message.text=='Последние новости':
-  latest_news(message)
- 
- else:
-    bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
-	   
-def check(message):
-    if message.text=='0': isRunning = False; return
-    if not message.text.isdigit()  :
-        msg = bot.send_message(message.chat.id, 'Enter number 1..100 again (0 for end Game)->')
-        bot.register_next_step_handler(msg, check) 
-        return
-    y=int(message.text)
-    if y >x :
-        msg = bot.send_message(message.chat.id, message.text+ ' МНОГО!' )
-        bot.register_next_step_handler(msg, check)
-    elif y<x :
-        msg = bot.send_message(message.chat.id, message.text+ ' МАЛО!' )
-        bot.register_next_step_handler(msg, check)
-    else:
-        msg = bot.send_message(message.chat.id, message.text+ ' УГАДАЛ!' )
-    isRunning = False	   
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
