@@ -1,6 +1,7 @@
 import telebot
 from telebot import types
-import random
+import random # id=random.randint(1,100) 
+
 import sqlite3
 from datetime import datetime, time, date
 
@@ -248,42 +249,45 @@ def quiz(message):
  log('',message.from_user.first_name)
  if message.text=='Выход': welcome(message); return;
  db=sqlite3.connect('db.db'); sql=db.cursor() ;
- sql.execute('CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, time TEXT)')
- sql.execute('CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN )')
- num_quest=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
- num_answered_quest=sql.execute('SELECT COUNT (*) FROM answered_questions WHERE user_id=?',(message.from_user.id,)).fetchone()[0] # Количество отвеченных вопросов
- print(num_answered_quest)
- current_question_id=random.randint(1,num_quest) # Выбираем рандомный вопрос. НУЖНО ИЗ ТЕХ, КОТОРЫЕ ЕЩЕ НЕ ОТВЕЧАЛИ (И СНАЧАЛА НОВЫЕ?)
- #print (current_question_id)
- question=sql.execute(f'SELECT question FROM quiz WHERE id= {current_question_id}').fetchone()[0]
+ sql.execute('CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER)')
+ sql.execute('CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN DEFAULT (0))')
+#  num_quest=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
+#  num_answered_quest=sql.execute('SELECT COUNT (*) FROM answered_questions WHERE user_id=?',(message.from_user.id,)).fetchone()[0] # Количество отвеченных вопросов
+ NA_QUEST=not_answered_question_and_its_answer=sql.execute('SELECT id, question, answer FROM quiz WHERE id NOT IN(SELECT question_id FROM answered_questions WHERE user_id=(?))',(message.from_user.id,)).fetchone()
+ print(NA_QUEST) #NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
+ 
+ if NA_QUEST==None: bot.send_message(message.chat.id,"Для вас вопросов больше нету. Приходите позже!"); return;
+ 
+ sql.execute('INSERT INTO answered_questions(user_id, question_id, time)VALUES(?,?,?)',(message.from_user.id, NA_QUEST[0], datetime.now() ))
+ db.commit()     # сразу занесли вопрос в таблицу просмотренных для этого человека
  
  markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
  markup2.add('Пропустить','Выход')
-     
- ans=bot.send_message(message.chat.id, "Введи ответ на вопрос:\n"+str(question), reply_markup=markup2 ) # Выведем  вопрос
- bot.register_next_step_handler(ans, quiz_answer_check, current_question_id) # КАК ПЕРЕДАТЬ id  ВОПРОСА В функцию проверки без внешней переменной или сразу передавать ответ
-def quiz_answer_check(message, current_question_id):
+   
+ ans=bot.send_message(message.chat.id, "Введите ответ на вопрос:\n"+str(NA_QUEST[1]), reply_markup=markup2 ) # Выведем  вопрос
+ bot.register_next_step_handler(ans, quiz_answer_check, NA_QUEST[0],  NA_QUEST[2]) #  NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
+def quiz_answer_check(message, current_question_id, correct_answer):
+ 
  if message.text=='Выход': welcome(message); return;
  if message.text=='Пропустить':
-     # ТУТ ЗАНОСИМ ВОПРОС В СПИСОК ПРОСМОТРЕННЫХ
      quiz(message); return; # Даем следующий вопрос и дальше по функции не идем
      
- db=sqlite3.connect('db.db'); sql=db.cursor() ;  
- correct_answer=sql.execute(f'SELECT answer FROM quiz WHERE id={current_question_id}').fetchone()[0] # Ответ на этот вопрос из БД
- #print ('Номер вопроса', current_question_id, 'Ожидаемый ответ', correct_answer, 'Человек ввел', message.text )
+ db=sqlite3.connect('db.db'); sql=db.cursor() ;
+ 
  if message.text==correct_answer: # Ответ верный прибавлячем очки
   sql.execute('UPDATE users SET score=score+1 where id=(?)', (message.from_user.id,)); # Увеличиваем счет игроку на 1
+  sql.execute('UPDATE answered_questions SET correct=True WHERE user_id=(?)',(message.from_user.id,)) # Поправляем что ответ был дан верно
   db.commit()
-  current_score=sql.execute('SELECT score FROM users WHERE id=(?)', (message.from_user.id,)).fetchone()[0];#получаем актуальный счет юзера
+  current_score=sql.execute('SELECT score FROM users WHERE id=(?)', (message.from_user.id,)).fetchone()[0];#теперь получаем актуальный счет юзера
   markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
-  ans=bot.send_message(message.chat.id, f'Ответ верный. Вы заработали 1 очко. Теперь у вас {current_score} очков. Переходим к следующему вопросу или выход?', reply_markup=markup3 ) #ДАЛЕЕ НАДО добавить в аккаунт что вопрос уже был
+  ans=bot.send_message(message.chat.id, f'Ответ верный. Вы заработали 1 очко. Теперь у вас {current_score} очков. Переходим к следующему вопросу или выход?', reply_markup=markup3 )
   bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
  else:
   markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
-  ans=bot.send_message(message.chat.id, 'Не совсем так. Вы не заработали очков на этом вопросе. Переходим к следующему вопросу или выход.', reply_markup=markup3) #ДАЛЕЕ НАДО добавить в аккаунт что вопрос уже был
+  ans=bot.send_message(message.chat.id, 'Не совсем так. Вы не заработали очков на этом вопросе. Переходим к следующему вопросу или выход.', reply_markup=markup3) 
   bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
   
-""" Между тем, во многих случаях можно переписать запрос, чтобы не использовать
+ """ Между тем, во многих случаях можно переписать запрос, чтобы не использовать
 вложенную выборку. Например, запрос:
 
 SELECT * FROM table1 WHERE id IN (SELECT id FROM table2);
