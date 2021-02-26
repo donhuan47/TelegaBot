@@ -15,8 +15,8 @@ bot=telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode
 markup=types.ReplyKeyboardMarkup(resize_keyboard=True)       # Create main keyboard
 markup.add( 'Последние новости', 'Викторина (QUIZ)',         'Личный кабинет',
             'Интересный факт',   'Стена ваших объявлений',   'Лучшие результаты',
-            'Голосоваение',      'Вопрос',                   'Контакты', 
-            'Уведомление начала и конца уроков', 'Помошь',   '🥕Сегодня в столовой🥕')
+            'Голосоваение(нет)',      'Вопрос',                   'Контакты', 
+            'Уведомление начала и конца уроков', 'Помощь(нет)',   '🥕Сегодня в столовой🥕')
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
@@ -241,7 +241,7 @@ def personal_cabinet(message):
  if result[0]==0:     add_text='Вы учитель'
  else:     add_text=f'Вы ученик {result[0]} класса'
  bot.send_message(message.chat.id,
-     f"""Вы авторизованы как <b>{message.from_user.first_name}</b>\n{add_text}\n Ваш счет: {result[1]} очков.\nОтвечайте на вопросы викторины и запоминайте интересные факты, чтобы набрать очки.  """) # 
+     f"""Вы авторизованы как <b>{message.from_user.first_name}</b>\n{add_text}\n Ваш счет: {result[1]} очка(-ов).\nОтвечайте на вопросы викторины и запоминайте интересные факты, чтобы набрать очки.  """) # 
 #------------------------КОНЕЦ РАБОТЫ С ЛИЧНЫМ КАБИНЕТОМ
  
 #------------------------НАЧАЛО РАБОТЫ С ВИКТОРИНОЙ
@@ -256,7 +256,7 @@ def quiz(message):
  NA_QUEST=not_answered_question_and_its_answer=sql.execute('SELECT id, question, answer FROM quiz WHERE id NOT IN(SELECT question_id FROM answered_questions WHERE user_id=(?))',(message.from_user.id,)).fetchone()
  print(NA_QUEST) #NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
  
- if NA_QUEST==None: bot.send_message(message.chat.id,"Для вас вопросов больше нету. Приходите позже!"); return;
+ if NA_QUEST==None: bot.send_message(message.chat.id,"Для вас вопросов больше нету. Приходите позже!", reply_markup=markup); return;
  
  sql.execute('INSERT INTO answered_questions(user_id, question_id, time)VALUES(?,?,?)',(message.from_user.id, NA_QUEST[0], datetime.now() ))
  db.commit()     # сразу занесли вопрос в таблицу просмотренных для этого человека
@@ -280,7 +280,7 @@ def quiz_answer_check(message, current_question_id, correct_answer):
   db.commit()
   current_score=sql.execute('SELECT score FROM users WHERE id=(?)', (message.from_user.id,)).fetchone()[0];#теперь получаем актуальный счет юзера
   markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
-  ans=bot.send_message(message.chat.id, f'Ответ верный. Вы заработали 1 очко. Теперь у вас {current_score} очков. Переходим к следующему вопросу или выход?', reply_markup=markup3 )
+  ans=bot.send_message(message.chat.id, f'Ответ верный. Вы заработали 1 очко. Теперь у вас {current_score} очка(-ов). Переходим к следующему вопросу или выход?', reply_markup=markup3 )
   bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
  else:
   markup3 = types.ReplyKeyboardMarkup(one_time_keyboard=True); markup3.add('Следующий->','Выход')
@@ -336,6 +336,19 @@ def question(message):
  markup.add(item1, item2)
  bot.send_message(message.chat.id, 'Нужен ли современной организации свой Бот?', reply_markup=markup)
 
+def best_score(message):
+   #  pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic);
+   # pic=open('me2.jpg','rb'); bot.send_photo(message.chat.id,pic)
+ db=sqlite3.connect('db.db'); sql=db.cursor() ;
+ sql.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY , name TEXT, score INTEGER DEFAULT (0), grade INTEGER)')
+ best_sorted=sql.execute('SELECT name, score FROM users ORDER BY score DESC').fetchall();
+ if len(best_sorted)==0: bot.send_message(message.chat.id,  'Нет никого'); return;
+ ttt=''; place=1
+ for person in best_sorted:
+  ttt += str(place) +'место <b>'+person [0] + '</b>      очков:    ' + str(person [1]) + '\n';
+  place+=1;
+ bot.send_message(message.chat.id, ttt)
+
 
 @bot.message_handler(content_types=['text'])
 def lalala_main_text_message_handler(message):
@@ -348,10 +361,8 @@ def lalala_main_text_message_handler(message):
  elif message.text=='Интересный факт':        view_fact(message)
  elif message.text=='Последние новости':      latest_news(message)
  elif message.text=='🥕Сегодня в столовой🥕': show_todays_menu(message)
- elif message.text=='***':
-    pic=open('me.jpg','rb');  bot.send_photo(message.chat.id,pic);
-    pic=open('me2.jpg','rb'); bot.send_photo(message.chat.id,pic)
-    bot.send_message(message.chat.id,  'Это я')
+ elif message.text=='Лучшие результаты': best_score(message)
+   
  else:bot.send_message(message.chat.id, message.text+' Без комментариев 😢')
 
 
