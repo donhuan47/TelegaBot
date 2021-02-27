@@ -39,7 +39,7 @@ def welcome(message):
       Нажмите кнопку снизу.\n """,  reply_markup=markup )
 def reg_user(message):   # Добавляем нового пользователя и его класс в БД
     db=sqlite3.connect('db.db'); sql=db.cursor() ;
-    if message.text=='Учитель':  message.text=0  # Учитель регистрируется под 0 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
+    if message.text=='Учитель':  message.text='13'  # Учитель регистрируется под 0 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
     sql.execute("INSERT INTO users (id, name, grade) VALUES (?, ?, ?)", (message.from_user.id, message.from_user.first_name, int(message.text)))
     db.commit(); #print(message.from_user.id, message.from_user.first_name, int(message.text) )
     bot.send_message(message.chat.id, "Зарегистрировали вас! Нажмите кнопку снизу",  reply_markup=markup )
@@ -238,7 +238,7 @@ def personal_cabinet(message):
  db=sqlite3.connect('db.db'); sql=db.cursor() ;
  # name TEXT, score INTEGER DEFAULT (0), grade INTEGER)
  result=sql.execute('SELECT grade, score FROM users WHERE id= (?) ', (message.from_user.id,)).fetchone(); #print (result)
- if result[0]==0:     add_text='Вы учитель'
+ if result[0]==13:     add_text='Вы учитель'
  else:     add_text=f'Вы ученик {result[0]} класса'
  bot.send_message(message.chat.id,
      f"""Вы авторизованы как <b>{message.from_user.first_name}</b>\n{add_text}\n Ваш счет: {result[1]} очка(-ов).\nОтвечайте на вопросы викторины и запоминайте интересные факты, чтобы набрать очки.  """) # 
@@ -253,8 +253,12 @@ def quiz(message):
  sql.execute('CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN DEFAULT (0))')
 #  num_quest=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
 #  num_answered_quest=sql.execute('SELECT COUNT (*) FROM answered_questions WHERE user_id=?',(message.from_user.id,)).fetchone()[0] # Количество отвеченных вопросов
- NA_QUEST=not_answered_question_and_its_answer=sql.execute('SELECT id, question, answer FROM quiz WHERE id NOT IN(SELECT question_id FROM answered_questions WHERE user_id=(?))',(message.from_user.id,)).fetchone()
- print(NA_QUEST) #NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
+ user_grade = sql.execute('SELECT grade FROM users WHERE id=?',(message.from_user.id,)).fetchone()[0] #ПОЛУЧАЕМ КЛАСС Человека Чтобы не задать слишком сложный вопрос
+ print(user_grade)
+ # Получим еще не отвеченные вопросы (совместно с ответами)
+ NA_QUEST=sql.execute('SELECT id, question, answer FROM quiz WHERE id NOT IN(SELECT question_id FROM answered_questions WHERE user_id=? ) AND grade<=(?) ',(message.from_user.id, user_grade)).fetchone()
+ print(NA_QUEST)
+ #NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
  
  if NA_QUEST==None: bot.send_message(message.chat.id,"Для вас вопросов больше нету. Приходите позже!", reply_markup=markup); return;
  
@@ -320,6 +324,7 @@ def add_wall_msg1(message):
  else: welcome(message) 
 def add_wall_msg2(message):
   log('',message.from_user.first_name)
+  if message.text==None:  bot.send_message(message.chat.id, "Ввели не текст", reply_markup=markup); welcome(message); return;
   db=sqlite3.connect('db.db'); sql=db.cursor()
   sql.execute('INSERT INTO wall (user_msg, date, user_id) VALUES (? ,?, ?)',(message.text,datetime.strftime(datetime.now(),"%y%m%d|%H:%M:%S"), (message.from_user.id)))
   db.commit()
@@ -395,5 +400,11 @@ def log(txt='', user='unknown'):
      db.commit()
 
 
-# RUN   
-bot.polling(none_stop=True)
+# RUN
+import time
+while True:
+    try:
+        bot.polling(none_stop=True)
+    except Exception:
+        time.sleep(15)
+        #Cjnnection error
