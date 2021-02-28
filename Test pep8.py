@@ -5,7 +5,7 @@ import random  # id=random.randint(1,100)
 import sqlite3
 from datetime import datetime, time, date
 
-print(datetime.now());  # print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
+print(datetime.now())  # print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
 print(datetime.strftime(datetime.now(), "%Y.%m.%d"))
 
 bot = telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
@@ -26,7 +26,7 @@ def welcome(message):
     log()
     log('', message.from_user.first_name)  # print(message.from_user.id) # Уникальный id юзера в телеге
     db = sqlite3.connect('db.db');
-    sql = db.cursor()  # print( message  )
+    sql = db.cursor();  # print( message  )
     sql.execute(
         'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY , name TEXT, score INTEGER DEFAULT (0), grade INTEGER)')
     result = sql.execute(' SELECT * FROM users WHERE id= (?) ', (message.from_user.id,)).fetchall();
@@ -35,8 +35,9 @@ def welcome(message):
         markup2.add('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'Учитель', 'Другое')
         msg = bot.send_message(message.chat.id,
                                """Здравствуйте, {0.first_name}.
-      Вы тут первый раз.\n С вами говорит {1.first_name}. Я пока на стадии разработки.
-      Укажите в каком классе вы учитесь""".format(message.from_user, bot.get_me()), reply_markup=markup2)
+                              Вы тут первый раз.\n С вами говорит {1.first_name}. Я пока на стадии разработки.
+                              Укажите в каком классе вы учитесь""".format(message.from_user, bot.get_me()),
+                               reply_markup=markup2)
         bot.register_next_step_handler(msg, reg_user)
     else:  # Пользователь уже есть в БД
         bot.send_message(message.chat.id,
@@ -59,7 +60,7 @@ def admin_info(message):
     log('', message.from_user.first_name)
     bot.send_message(message.chat.id, """<b>КОММАНДЫ АДМИНИСТРАТОРОВ бота:
 РАБОТА С ПОСЛЕДНИМИ НОВОСТЯМИ</b>
-/addnews, /add - Добавить актуальную  новость Можно выбирать любую
+/addnews, /add - Добавить актуальную  новость
 /deletenews ,/delete КОМАНДЫ УДАЛЕНИЯ ПОСЛЕДНИХ НОВОСТИ
 
 РАБОТА С РАЗДЕЛОМ ИНТЕРЕСНЫХ ФАКТОВ (планируется добавить англ\фран\нем выражения и идиомы для запоминания и накапливания очков)
@@ -70,7 +71,6 @@ def admin_info(message):
 /makemenu /composehmenu /vewmeals /eda /food  КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ ДЛЯ СТОЛОВОЙ ИЗ БЛЮД В БД(вероятно, не удобный функционал. Можно упростить)
 /showmeals /vsebluda /viewmeals /allmeals #КОМАНДЫ ПОКАЗА ВСЕХ БЛЮД ЗАПИСАННЫХ В БД
 
-/addquestion /addq /newquestion /newq   # КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ
 В викторине будут вопросы по темам разных предметов для человека из соответствующего класса
 Возможно сделать авторизацию по номеру телефона. БОТ на стадии разработки и продумывания необходимого функционала
 АКТИВИРОВАТЬ БОТА: /start
@@ -143,8 +143,7 @@ def latest_news(message):  # Вывод всех новостей на экра�
     sql = db.cursor()
     sql.execute('CREATE TABLE IF NOT EXISTS news (id INTEGER PRIMARY KEY AUTOINCREMENT, news_text TEXT)')
     news = sql.execute('SELECT news_text FROM news').fetchall()
-    for n in news:     bot.send_message(message.chat.id, n[0]);  print(
-        message.from_user.first_name + ' смотрит новость,', n)
+    for n in news:     bot.send_message(message.chat.id, n[0]);  print('Сейчас кто-то смотрит новости', n)
 
 
 # ------------------------КОНЕЦ РАБОТЫ С НОВОСТЯМИ
@@ -166,7 +165,7 @@ def addf2(my_fact):
     sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
     sql.execute("INSERT INTO `facts`(id, fact) VALUES ( NULL, (?))", (my_fact.text,))  # ЗПТ ОБЯЗАТЕЛЬНА ТК нужен кортеж
     db.commit()
-    factsList = sql.execute(' SELECT * FROM `facts` ').fetchall()
+    factsList = sql.execute(' SELECT * FROM `facts` ').fetchall();
     for n in factsList:
         print(n)  # ПЕЧАТЬ ВСЕХ Фактов после добавления новости
 
@@ -179,7 +178,7 @@ def delf(message):
     db = sqlite3.connect('db.db');
     sql = db.cursor()
     sql.execute('CREATE TABLE IF NOT EXISTS `facts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `fact` TEXT)')
-    factsList = sql.execute(' SELECT * FROM `facts` ').fetchall()
+    factsList = sql.execute(' SELECT * FROM `facts` ').fetchall();
     for n in factsList:
         print(n)  # ВЫВОД ВСЕХ НОВОСТЕЙ С ИХ ИНДЕКСОМ новости
         bot.send_message(message.chat.id, f' <b>id {n[0]}-></b>   {n[1]} ')
@@ -322,7 +321,7 @@ def quiz(message):
     db = sqlite3.connect('db.db');
     sql = db.cursor();
     sql.execute(
-        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT)')
+        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER)')
     sql.execute(
         'CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN DEFAULT (0))')
     #  num_quest=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
@@ -385,50 +384,12 @@ def quiz_answer_check(message, current_question_id, correct_answer):
         bot.register_next_step_handler(ans, quiz)  # переходим к следующему вопросу
 
     """ Между тем, во многих случаях можно переписать запрос, чтобы не использовать
-вложенную выборку. Например, запрос:
-
-SELECT * FROM table1 WHERE id IN (SELECT id FROM table2);
-можно переписать следующим образом:
-
-SELECT table1.* FROM table1,table2 WHERE table1.id=table2.id;"""
-
-
-@bot.message_handler(
-    commands=['addquestion', 'addq', 'newquestion', 'newq'])  # КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ
-def add_quiz_question(message):
-    log('Пытаются добавить вопрос квиза', message.from_user.first_name)
-    if message.text == '0':  bot.send_message(message.chat.id, 'OK',
-                                              reply_markup=markup);return  # Одноразовая клавиатура убирается
-    nq = bot.send_message(message.chat.id, 'Введите новый вопрос.')
-    bot.register_next_step_handler(nq,add_quest2)
-
-
-def add_quest2(message):
-    new_ans = bot.send_message(message.chat.id, f'Вы ввели вопрос {message.text} \nТеперь введите ответ:')
-    bot.register_next_step_handler(new_ans, add_quest3, message.text)
-
-def add_quest3(message, new_question ):
-        new_ans = bot.send_message(message.chat.id, f'Вы ввели ответ {message.text} \nТеперь введите класс, который сможет ответить (1-11):')
-        bot.register_next_step_handler(new_ans, add_quest4, new_question, message.text)
-
-def add_quest4(message, new_question, new_answer):
-    grade = bot.send_message(message.chat.id,
-                                       f'Вы ввели класс {message.text} \n Введите тему или премет вопроса (напр. математика)')
-    bot.register_next_step_handler(grade, add_quest5, new_question, new_answer, message.text)
-
-def add_quest5 (message, new_question, new_answer, grade):
-    theme=message.text
-    bot.send_message(message.chat.id,f'Введена тема: {message.text}\n Спасибо за вопрос', reply_markup=markup  )
-    db = sqlite3.connect('db.db');
-    sql = db.cursor()
-    sql.execute(
-        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT)')
-
-    sql.execute("INSERT INTO  quiz (question, answer, theme,grade) VALUES ( ?,?,?,? )", (new_question,new_answer,theme, grade)) # Заносим в БД новый вопрос
-    db.commit()
-    factsList = sql.execute(' SELECT * FROM  quiz ').fetchall();
-    for n in factsList:
-        print(n)  # ПЕЧАТЬ ВСЕХ вопросов
+   вложенную выборку. Например, запрос:
+   
+   SELECT * FROM table1 WHERE id IN (SELECT id FROM table2);
+   можно переписать следующим образом:
+   
+   SELECT table1.* FROM table1,table2 WHERE table1.id=table2.id;"""
 
 
 # ------------------------КОНЕЦ РАБОТЫ С ВИКТОРИНОЙ
@@ -457,8 +418,7 @@ def show_wall(message):
 
 def add_wall_msg1(message):
     if message.text == 'В главное меню':
-        welcome(message);
-        return;
+        welcome(message); return;
     elif message.text == 'Добавить объявление':
         ans = bot.send_message(message.chat.id, "Напишите сообщение");
         bot.register_next_step_handler(ans, add_wall_msg2);  # print ("а что в ans на этом этапе?",ans)
@@ -561,19 +521,16 @@ def log(txt='', user='unknown'):
         if txt == '':
             import traceback
             txt = traceback.extract_stack(None, 2)[0][2]  # print (txt) # ИМЯ функции из которой вызвали функцию log()
-        sql.execute('INSERT INTO logs (user, logtext, logtime) VALUES(? ,?, ?)', (str(user), txt, datetime.now()))
+     s   sql.execute('INSERT INTO logs (user, logtext, logtime) VALUES(? ,?, ?)', (str(user), txt, datetime.now()))
         db.commit()
 
 
 # RUN
 import time
 
-bot.polling(none_stop=True)
 while True:
-     try:
-         print('try')
-         bot.skip_pending = True  # не отвечать на скопленные сообщения
-         bot.polling(none_stop=True)
-     except Exception:
-         time.sleep(15)
-         print(Exception)
+    try:
+        bot.polling(none_stop=True)
+    except Exception:
+        time.sleep(15)
+        # Cjnnection error

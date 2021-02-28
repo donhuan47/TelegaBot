@@ -1,17 +1,28 @@
+
 import turtle
 
-turtle.forward(100)     # Противоположна turtle.backward(...)
-turtle.left(90)         # Повернуть влево на столько градусов  Противоположна turtle.right(...)
+myPen = turtle.Turtle()
+myPen.speed(0)
+myPen.color("#FF0000")
 
-turtle.shape("turtle") #  Изменить стандартную стрелку на черепаху
-turtle.forward(100)
+side=20
+myPen.penup()
+myPen.goto(0,0) #position cursor at the bootom right of the screen
+myPen.pendown()
 
-turtle.reset() #  Начать заново и все стереть
+for i in range (1,50):
+  myPen.forward(side)
+  myPen.left(92)
+  side=side+7
 
-# turtle.width(...)  ; turtle.color(...)
 
-help(turtle.color)
+myPen.penup()
+myPen.goto(500,500)
 
-# Упражнение Нарисуй квадрат, как на рисунке ниже:
-
-turtle.exitonclick() # at the bottom of your file. Now the window stays open until you click on it:
+#Start Spiral
+#for i in range (1,20):
+#  for j in range (0,4):
+#      myPen.forward(side)
+#      myPen.left(90)
+#  myPen.left(20)
+#  side=side+5
