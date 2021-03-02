@@ -322,7 +322,7 @@ def quiz(message):
     db = sqlite3.connect('db.db');
     sql = db.cursor();
     sql.execute(
-        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT)')
+        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT, whoadded TEXT)')
     sql.execute(
         'CREATE TABLE IF NOT EXISTS answered_questions(user_id INTEGER, question_id INTEGER, time TEXT, correct BOOLEAN DEFAULT (0))')
     #  num_quest=sql.execute('SELECT COUNT (*) FROM quiz').fetchone()[0] # Количество записей с вопросами из БД
@@ -337,7 +337,7 @@ def quiz(message):
     print(NA_QUEST)
     # NA_QUEST[0] - id текущего вопроса; NA_QUEST[2] - ответ на него
 
-    if NA_QUEST == None: bot.send_message(message.chat.id, "Для вас вопросов больше нету. Приходите позже!",
+    if NA_QUEST == None: bot.send_message(message.chat.id, "Для вас вопросов больше нету. Приходите позже! или добавьте свой вопрос /aq",
                                           reply_markup=markup); return;
 
     sql.execute('INSERT INTO answered_questions(user_id, question_id, time)VALUES(?,?,?)',
@@ -422,13 +422,63 @@ def add_quest5 (message, new_question, new_answer, grade):
     db = sqlite3.connect('db.db');
     sql = db.cursor()
     sql.execute(
-        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT)')
+        'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT, whoadded TEXT)')
 
     sql.execute("INSERT INTO  quiz (question, answer, theme,grade) VALUES ( ?,?,?,? )", (new_question,new_answer,theme, grade)) # Заносим в БД новый вопрос
     db.commit()
     factsList = sql.execute(' SELECT * FROM  quiz ').fetchall();
-    for n in factsList:
-        print(n)  # ПЕЧАТЬ ВСЕХ вопросов
+   # for n in factsList:        print(n)  # ПЕЧАТЬ ВСЕХ вопросов
+
+@bot.message_handler(
+    commands=['aq'])  # КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ ДРУГОЙ ВАРИАНТ
+def addnewquest(message):
+    log('Пытаются добавить вопрос квиза', message.from_user.first_name)
+    bot.send_message(message.chat.id, 'Введите вопрос и ответ в двойных скобках. Желательно ответ должен состоять из одного слова или буквы варианта.  Например');
+    bot.send_message(message.chat.id, 'В каком году родился Александр Пушкин?<b>((1799))</b>');
+    bot.send_message(message.chat.id, 'Или так');
+    bot.send_message(message.chat.id, 'Как называет Пушкин свою няню в стихах?\n1)подруга суровых дней;\n2)моя родная;\n3)голубка<b>((1))</b>');
+
+
+    nq = bot.send_message(message.chat.id, 'Теперь введите ваш вопрос.')
+    bot.register_next_step_handler(nq,add_qst2)
+
+
+def add_qst2(message):
+    s=message.text
+    try:
+        que=s[:s.index('((')]
+        ans=s[s.index('((') + 2:s.index('))')]
+
+        markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        markup2.add( 'Переписать')
+        grade = bot.send_message(message.chat.id, f'Вы ввели вопрос {que} \n\n Ответ на него {ans}. Введите класс, который сможет ответить(1-11)',
+                                   reply_markup=markup2)
+        bot.register_next_step_handler(grade, commitquest , que,ans )
+
+
+    except Exception as e:
+       print('Ошибка:\n', traceback.format_exc())
+       nq = bot.send_message(message.chat.id, 'Не могу понять. Напишите еще раз вопрос с ответом в двойных скобках')
+       bot.register_next_step_handler(nq, add_qst2)
+
+def commitquest (message, new_question, new_answer):
+    grade=message.text
+    if message.text=='Переписать': addnewquest(message); return;
+    elif message.text.isdigit():
+        g=int(message.text)
+        if g<1 or g>11:
+            g=1
+        db = sqlite3.connect('db.db');
+        sql = db.cursor()
+        sql.execute(
+            'CREATE TABLE IF NOT EXISTS quiz (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT, answer TEXT, theme TEXT, grade INTEGER, hardness INTEGER, hint TEXT, whoadded TEXT)')
+
+        sql.execute("INSERT INTO  quiz (question, answer, whoadded, grade) VALUES ( ?,?,?,? ) ", (new_question, new_answer, message.from_user.first_name, g) )
+        db.commit()
+        bot.send_message(message.chat.id,f' Спасибо за вопрос', reply_markup=markup  )
+
+
+
 
 
 # ------------------------КОНЕЦ РАБОТЫ С ВИКТОРИНОЙ
@@ -567,13 +617,18 @@ def log(txt='', user='unknown'):
 
 # RUN
 import time
+import traceback
+#bot.polling(none_stop=True)
 
-bot.polling(none_stop=True)
 while True:
+
      try:
-         print('try')
+
+         print("Start polling")
          bot.skip_pending = True  # не отвечать на скопленные сообщения
+         #bot.send_message(1680608864,traceback.format_exc())
          bot.polling(none_stop=True)
-     except Exception:
+     except Exception as e:
+         mytext= traceback.format_exc()
+         print('Ошибка:\n', traceback.format_exc() )
          time.sleep(15)
-         print(Exception)
