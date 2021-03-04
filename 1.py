@@ -8,7 +8,9 @@ from datetime import datetime, time, date
 print(datetime.now());  # print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
 print(datetime.strftime(datetime.now(), "%Y.%m.%d"))
 
-bot = telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html')
+#bot = telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html') #official
+bot = telebot.TeleBot("1664010263:AAFk72-IGYODlwvzRBLDZMxeAeKXNB1jhFQ", parse_mode='html') #TEST
+
 # print(dir (bot.get_chat_member))
 # print (locals())
 
@@ -16,7 +18,7 @@ markup = types.ReplyKeyboardMarkup(resize_keyboard=True)  # Create main keyboard
 markup.add('Последние новости', 'Викторина (QUIZ)', 'Личный кабинет',
            'Интересный факт', 'Стена ваших объявлений', 'Лучшие результаты',
            'Голосоваение(нет)', 'Вопрос', 'Контакты',
-           'Уведомление начала и конца уроков', 'Помощь(нет)', '🥕Сегодня в столовой🥕')
+           '🕓Уведомление начала и конца уроков', 'Помощь(нет)', '🥕Сегодня в столовой🥕')
 
 
 @bot.message_handler(commands=['start'])
@@ -47,14 +49,14 @@ def welcome(message):
 def reg_user(message):  # Добавляем нового пользователя и его класс в БД
     db = sqlite3.connect('db.db');
     sql = db.cursor();
-    if message.text == 'Учитель':  message.text = '13'  # Учитель регистрируется под 0 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
+    if message.text == 'Учитель':  message.text = '13'  # Учитель регистрируется под 13 классом; 1494 класс для админов (регистрировать в ЛС индивиуально)
     sql.execute("INSERT INTO users (id, name, grade) VALUES (?, ?, ?)",
                 (message.from_user.id, message.from_user.first_name, int(message.text)))
     db.commit();  # print(message.from_user.id, message.from_user.first_name, int(message.text) )
     bot.send_message(message.chat.id, "Зарегистрировали вас! Нажмите кнопку снизу", reply_markup=markup)
 
 
-@bot.message_handler(commands=['admin', 'test'])
+@bot.message_handler(commands=['admin', 'test','help'])
 def admin_info(message):
     log('', message.from_user.first_name)
     bot.send_message(message.chat.id, """<b>КОММАНДЫ АДМИНИСТРАТОРОВ бота:
@@ -73,9 +75,23 @@ def admin_info(message):
 /addquestion /addq /newquestion /newq   # КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ
 В викторине будут вопросы по темам разных предметов для человека из соответствующего класса
 Возможно сделать авторизацию по номеру телефона. БОТ на стадии разработки и продумывания необходимого функционала
+или добавить можно /aq  (как проще?)
 АКТИВИРОВАТЬ БОТА: /start
+
+/log /l Показать последние записи лога
+
 """)
 
+@bot.message_handler(commands=['log', 'l']) # ВЫВОД ПОСЛЕДНИХ ЛОГОВ
+def show_logs(message):
+    db = sqlite3.connect('db.db');
+    sql = db.cursor()
+    sql.execute('CREATE TABLE IF NOT EXISTS logs(id INTEGER PRIMARY KEY AUTOINCREMENT, logtext TEXT, logtime TEXT, user TEXT)')
+    last_logs= sql.execute(
+        'SELECT id, logtext, logtime, user FROM logs ORDER BY id DESC LIMIT 20').fetchall()  # ВЫВОДИМ 20 последних логов
+    for m in reversed(last_logs):
+        #print(f'id:{m[0]}<b>{str(m[1])}</b>{m[2]} {m[3]}')
+        bot.send_message(message.chat.id,f'id:{m[0]}<b>{m[1]}</b>{m[2]} {m[3]}');  # print(m)# Вывели все логи
 
 # ------------------------НАЧАЛО РАБОТЫ С НОВОСТЯМИ
 @bot.message_handler(commands=['addnews', 'add'])  # КОМАНДА ДОБАВЛЕНИЯ НОВОСТИ ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ
@@ -399,26 +415,29 @@ def add_quiz_question(message):
     log('Пытаются добавить вопрос квиза', message.from_user.first_name)
     if message.text == '0':  bot.send_message(message.chat.id, 'OK',
                                               reply_markup=markup);return  # Одноразовая клавиатура убирается
-    nq = bot.send_message(message.chat.id, 'Введите новый вопрос.')
+    nq = bot.send_message(message.chat.id, 'Введите новый вопрос. 0-для отмены')
     bot.register_next_step_handler(nq,add_quest2)
 
 
 def add_quest2(message):
-    new_ans = bot.send_message(message.chat.id, f'Вы ввели вопрос {message.text} \nТеперь введите ответ:')
+    if message.text=='0': welcome(message); return;
+    new_ans = bot.send_message(message.chat.id, f'Вы ввели вопрос <b>{message.text}</b> \nТеперь введите ответ (0 для отмены):')
     bot.register_next_step_handler(new_ans, add_quest3, message.text)
 
 def add_quest3(message, new_question ):
-        new_ans = bot.send_message(message.chat.id, f'Вы ввели ответ {message.text} \nТеперь введите класс, который сможет ответить (1-11):')
-        bot.register_next_step_handler(new_ans, add_quest4, new_question, message.text)
+    if message.text == '0': welcome(message); return;
+    new_ans = bot.send_message(message.chat.id, f'Вы ввели ответ <b>{message.text}</b> \nТеперь введите класс, который сможет ответить (1-11)(0 для отмены):')
+    bot.register_next_step_handler(new_ans, add_quest4, new_question, message.text)
 
 def add_quest4(message, new_question, new_answer):
+    if message.text == '0': welcome(message); return;
     grade = bot.send_message(message.chat.id,
-                                       f'Вы ввели класс {message.text} \n Введите тему или премет вопроса (напр. математика)')
+                                       f'Вы ввели класс <b>{message.text}</b> \n Введите тему или премет вопроса (напр. математика)')
     bot.register_next_step_handler(grade, add_quest5, new_question, new_answer, message.text)
 
 def add_quest5 (message, new_question, new_answer, grade):
     theme=message.text
-    bot.send_message(message.chat.id,f'Введена тема: {message.text}\n Спасибо за вопрос', reply_markup=markup  )
+    bot.send_message(message.chat.id,f'Введена тема: <b>{message.text}</b>\n Спасибо за вопрос', reply_markup=markup  )
     db = sqlite3.connect('db.db');
     sql = db.cursor()
     sql.execute(
@@ -445,6 +464,7 @@ def addnewquest(message):
 
 def add_qst2(message):
     s=message.text
+    if s=='0': welcome(message); return; # ввели 0 для отмены. Возврат в меню
     try:
         que=s[:s.index('((')]
         ans=s[s.index('((') + 2:s.index('))')]
@@ -458,7 +478,7 @@ def add_qst2(message):
 
     except Exception as e:
        print('Ошибка:\n', traceback.format_exc())
-       nq = bot.send_message(message.chat.id, 'Не могу понять. Напишите еще раз вопрос с ответом в двойных скобках')
+       nq = bot.send_message(message.chat.id, 'Не могу понять. Напишите еще раз вопрос с ответом в двойных скобках. Напишите 0 для отмены.')
        bot.register_next_step_handler(nq, add_qst2)
 
 def commitquest (message, new_question, new_answer):
@@ -558,7 +578,7 @@ def best_score(message):
 
 @bot.message_handler(content_types=['text'])
 def lalala_main_text_message_handler(message):
-    if message.text == 'Уведомление начала и конца уроков':
+    if message.text == '🕓Уведомление начала и конца уроков':
         bot.send_message(message.chat.id, "Сейчас на сервере " + str(datetime.now()) + 'Эту функцию еще не разработали')
     elif message.text == 'Личный кабинет':
         personal_cabinet(message)
@@ -600,8 +620,8 @@ def callback_inline(call):
     except Exception as e:
         print(repr(e))
 
-
-# log('',message.from_user.first_name)
+# ------------------------НАЧАЛО РАБОТЫ С ЛОГАЛМИ
+# log('',message.from_user.first_name) # это вставляем в функцию, которая должна записаться в лог в ДБ
 def log(txt='', user='unknown'):
     if True:  # Turn off logging
         db = sqlite3.connect('db.db');
@@ -614,6 +634,9 @@ def log(txt='', user='unknown'):
         sql.execute('INSERT INTO logs (user, logtext, logtime) VALUES(? ,?, ?)', (str(user), txt, datetime.now()))
         db.commit()
 
+
+
+# ------------------------КОНЕЦ РАБОТЫ С ЛОГАМИ
 
 # RUN
 import time
@@ -631,4 +654,5 @@ while True:
      except Exception as e:
          mytext= traceback.format_exc()
          print('Ошибка:\n', traceback.format_exc() )
+         log("Connection lost?")
          time.sleep(15)
