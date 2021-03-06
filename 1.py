@@ -550,6 +550,26 @@ def add_wall_msg2(message):
 
 # ------------------------КОНЕЦ РАБОТЫ С ЧАТОМ (СТЕНОЙ ОБЪЯВЛЕНИЙ)
 
+# ------------------------НАЧАЛО РАБОТЫ С РАНДОМНЫМИ ВОПРОСАМИ
+def random_answer(message):
+
+    log(message.text , message.from_user.first_name) # логируем, что человек что-то спросил бота
+    db = sqlite3.connect('db.db');
+    sql = db.cursor()
+    sql.execute('CREATE TABLE IF NOT EXISTS botanswers( question TEXT, answer TEXT, user TEXT )')
+    num_answers = sql.execute('SELECT COUNT (*) FROM botanswers').fetchall()[0][0]  # Количество записей с ответами
+    if num_answers==0: bot.send_message(message.chat.id, message.text + 'База ответов пуста>'); return;
+    try:
+        #reply= sql.execute(f'SELECT answer FROM botanswers WHERE question LIKE %вет', ('%'+message.text.lower(),)).fetchall()[0][0] #
+        reply= sql.execute(f'SELECT answer FROM botanswers WHERE question =?', (message.text.lower(),)).fetchall()[0][0] #
+        bot.send_message(message.chat.id, reply)
+    except:
+        sql.execute('INSERT INTO botanswers (question, answer, user ) VALUES(? ,?, ?)', (message.text, "Уже спрашивали. Скоро узнаю ответ", message.from_user.first_name))
+        db.commit();
+        bot.send_message(message.chat.id, message.text + ' Пока  без комментариев 😢.')
+# ------------------------КОНЕЦ РАБОТЫ С ОТВЕТОМ НА РАНДОМНЫЕ ВОПРОСЫ
+
+
 def question(message):
     log('', message.from_user.first_name)
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -600,7 +620,8 @@ def lalala_main_text_message_handler(message):
         best_score(message)
 
     else:
-        bot.send_message(message.chat.id, message.text + ' Без комментариев 😢')
+        random_answer(message)
+
 
 
 @bot.callback_query_handler(func=lambda call: True)
