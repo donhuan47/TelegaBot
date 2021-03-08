@@ -10,7 +10,7 @@ import threading
 print(datetime.now())  # print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
 print(datetime.strftime(datetime.now(), "%Y.%m.%d"))
 
-# bot = telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html') #official
+#bot = telebot.TeleBot("1692964167:AAEMMwSeQVkGUyXJrKSwT0hpMygLhqKAOBc", parse_mode='html') #official
 bot = telebot.TeleBot("1664010263:AAFk72-IGYODlwvzRBLDZMxeAeKXNB1jhFQ", parse_mode='html')  # TEST
 
 # print(dir (bot.get_chat_member))
@@ -20,7 +20,7 @@ markup = types.ReplyKeyboardMarkup(resize_keyboard=True)  # Create main keyboard
 
 markup.add('🗞Последние новости', '🧠Викторина (QUIZ)', '🔑Личный кабинет',
            '🦉Интересный факт', '💬Стена ваших объявлений', '🏆Лучшие результаты',
-           'Голосоваение(нет)', 'Вопрос', '✉Контакты',
+           '📊Голосоваение', 'Вопрос', '✉Контакты',
            '⏰Уведомление начала и конца уроков', 'Помощь(нет)', '🥕Сегодня в столовой🥕')
 
 
@@ -62,31 +62,36 @@ def reg_user(message):  # Добавляем нового пользовател
 @bot.message_handler(commands=['admin', 'test', 'help'])
 def admin_info(message):
     log('', message.from_user.first_name)
-    bot.send_message(message.chat.id, """<b>КОММАНДЫ АДМИНИСТРАТОРОВ бота:
+    bot.send_message(message.chat.id, """
+    <b>КОММАНДЫ АДМИНИСТРАТОРОВ БОТА:
+    
 РАБОТА С ПОСЛЕДНИМИ НОВОСТЯМИ</b>
-/addnews, /add - Добавить актуальную  новость Можно выбирать любую
-/deletenews ,/delete КОМАНДЫ УДАЛЕНИЯ ПОСЛЕДНИХ НОВОСТИ
+/addnews, /add - Добавить актуальную  новость (Эти команды эквиваленитны. Можно выбирать, что больше нравится)
+/deletenews, /delete - КОМАНДЫ УДАЛЕНИЯ ПОСЛЕДНИХ НОВОСТИ
 
-РАБОТА С РАЗДЕЛОМ ИНТЕРЕСНЫХ ФАКТОВ (планируется добавить англ\фран\нем выражения и идиомы для запоминания и накапливания очков)
-/addfact, /addf КОМАНДЫ ДОБАВЛЕНИЯ ИНТЕРЕСНОГО ФАКТА
-/delfacat /delf /deletef  КОМАНДЫ Удаления ИНТЕРЕСНОГО ФАКТА)
+<b>РАБОТА С РАЗДЕЛОМ ИНТЕРЕСНЫХ ФАКТОВ</b> 
+(планируется добавить англ/фран/нем выражения и идиомы для запоминания и накапливания очков)
+/addfact, /addf - КОМАНДЫ ДОБАВЛЕНИЯ ИНТЕРЕСНОГО ФАКТА
+/delfacat /delf /deletef - КОМАНДЫ Удаления ИНТЕРЕСНОГО ФАКТА)
 
-РАБОТС С МЕНЮ СТОЛОВОЙ НА ТЕКУЩИЙ ДЕНЬ
-/makemenu /composehmenu /vewmeals /eda /food  КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ ДЛЯ СТОЛОВОЙ ИЗ БЛЮД В БД(вероятно, не удобный функционал. Можно упростить)
+<b>РАБОТС С МЕНЮ СТОЛОВОЙ НА ТЕКУЩИЙ ДЕНЬ</b>
+/makemenu /composemenu /vewmeals /eda /food - КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ ДЛЯ СТОЛОВОЙ ИЗ БЛЮД В БД(вероятно, не удобный функционал. Можно упростить)
 /showmeals /vsebluda /viewmeals /allmeals #КОМАНДЫ ПОКАЗА ВСЕХ БЛЮД ЗАПИСАННЫХ В БД
 
-/addquestion /addq /newquestion /newq   # КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ
+<b> ВИКТОРИНА </b>
+/addquestion, /addq, /newquestion, /newq  - КОМАНДЫ ДОБАВЛЕНИЯ ВОПРОСА ДЛЯ ВИКТОРИНЫ
 В викторине будут вопросы по темам разных предметов для человека из соответствующего класса
 Возможно сделать авторизацию по номеру телефона. БОТ на стадии разработки и продумывания необходимого функционала
-или добавить можно /aq  (как проще?)
+Или добавить можно /aq  (как проще?)
 АКТИВИРОВАТЬ БОТА: /start
 
-/log /l Показать последние записи лога
+/log /l - Показать последние записи лога
 
+По всем вопросам пишите разработчику donhuan47@gmail.com 
 """)
     # bot.sendDice(message.chat.id, sad)
 
-    bot.send_poll(message.chat.id, 'Choose correct', ['a', 'b', 'c'])
+
 
 
 @bot.message_handler(commands=['log', 'l'])  # ВЫВОД ПОСЛЕДНИХ ЛОГОВ
@@ -277,7 +282,7 @@ def show_all_meals_inDB(message):
         bot.send_message(message.chat.id, f'<b>id {n[0]}-></b>--> <b>{n[1]}</b> Цена: <b>{n[2]}</b> ')
 
 
-@bot.message_handler(commands=['makemenu', 'composehmenu', 'viewmeals', 'eda', 'food'])  # КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ
+@bot.message_handler(commands=['makemenu', 'composemenu', 'viewmeals', 'eda', 'food'])  # КОМАНДЫ ФОРМИРОВАНИЯ МЕНЮ
 def make_food_menu(message):
     show_all_meals_inDB(message)  # Покажем все доступные блюда с номерами
     meals_numbers_for_free_breakfast = bot.send_message(message.chat.id,
@@ -560,7 +565,7 @@ def show_wall(message):  # Вывести сообщение с записями
     bot.send_message(message.chat.id, get_wall_msg_from_DB(), reply_markup=markup1);
     # Вывели все сообщения с кнопками влево и вправо
 
-    markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
     markup2.add('Добавить объявление', 'В главное меню')
     ans = bot.send_message(message.chat.id, "<b><u>Выберите действие></u></b>", reply_markup=markup2)
     bot.register_next_step_handler(ans, add_wall_msg1)
@@ -793,6 +798,9 @@ def lalala_main_text_message_handler(message):
         show_todays_menu(message)
     elif message.text == '🏆Лучшие результаты':
         best_score(message)
+    elif message.text == '📊Голосоваение':
+        bot.send_message(message.from_user.id,"Тут пока нет ничего")
+        bot.send_poll(message.chat.id, 'Какое настроение', ['Плохое', 'Среднее', 'Нормальное'])
 
     else:
         random_answer(message)
@@ -840,9 +848,7 @@ import traceback
 # bot.polling(none_stop=True)
 
 while True:
-
     try:
-
         bot.skip_pending = True  # не отвечать на скопленные сообщения
         # bot.send_message(1680608864,traceback.format_exc())
         # bot.polling(none_stop=True)
@@ -855,6 +861,6 @@ while True:
         bot.polling()
     except Exception as e:
         mytext = traceback.format_exc()
-        print('Ошибка:\n', traceback.format_exc())
+        print('Ошибка:\n', traceback.format_exc(), e)
         log("Connection lost?")
         time.sleep(15)
