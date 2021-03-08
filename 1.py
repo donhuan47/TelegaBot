@@ -4,7 +4,7 @@ import random  # id=random.randint(1,100)
 
 import sqlite3
 from datetime import datetime, time, date
-import schedule  # pip install schedule
+import schedule  # pip install schedule   или  pip3 install schedule
 import threading
 
 print(datetime.now())  # print (datetime.strftime(datetime.now(), "%Y.%m.%d %H:%M:%S") )
@@ -17,6 +17,7 @@ bot = telebot.TeleBot("1664010263:AAFk72-IGYODlwvzRBLDZMxeAeKXNB1jhFQ", parse_mo
 # print (locals())
 
 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)  # Create main keyboard
+
 markup.add('🗞Последние новости', '🧠Викторина (QUIZ)', '🔑Личный кабинет',
            '🦉Интересный факт', '💬Стена ваших объявлений', '🏆Лучшие результаты',
            'Голосоваение(нет)', 'Вопрос', '✉Контакты',
@@ -526,35 +527,74 @@ def commitquest(message, new_question, new_answer):
 
 # ------------------------НАЧАЛО РАБОТЫ С ЧАТОМ (СТЕНОЙ ОБЪЯВЛЕНИЙ)
 
-def show_wall(message):
-    log('', message.from_user.first_name)
+def get_wall_msg_from_DB(offset=0):  # получаем в сторке 6 новостей с заданным отступом от последней
     db = sqlite3.connect('db.db');
     sql = db.cursor()
+    wall_msgs = sql.execute(  # Получаем 6 последних СООБЩЕНИЙ с заданным отступом
+        f'SELECT date, user_id, user_msg FROM wall ORDER BY id DESC LIMIT 6 OFFSET {offset}').fetchall()
+    all_news_combined = ''  # собЕрем сюда эти  записи
+    """ В корнях с чередованием гласных Е-И (бир-бер, тир-тер, 
+     стил-стел, мир-мер, пир-пер, дир-дер и т. д. ) 
+     пишется И, если есть суффикс А ( собИрАем) . 
+     Если нет суффикса А, пишем Е ( собЕрём)."""
+    for m in reversed(wall_msgs):
+        # СНАЧАЛА получаем имя пользователей по их id из таблицы users
+        name = sql.execute('SELECT name FROM users WHERE id=(?)', (m[1],)).fetchone()[0];  # print (name)
+        # all_news_combined += f'date:{m[0]} <b>{name}</b> Написал:\n {m[2]} \n {"_"*30}\n'
+        all_news_combined += f'date:{m[0]} <b>{name}</b> Написал:\n <b>{m[2]}</b> \n \n'
+    if all_news_combined=='': all_news_combined='Нечего не показать'
+    return all_news_combined
 
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add('Добавить объявление', 'Редактировать объявлние(пока нет)', 'В главное меню')
 
+def show_wall(message):  # Вывести сообщение с записями чата
+    log('', message.from_user.first_name)
+    db = sqlite3.connect('db.db');    sql = db.cursor();
     sql.execute(
         'CREATE TABLE IF NOT EXISTS wall (id INTEGER PRIMARY KEY AUTOINCREMENT, user_msg TEXT, date TEXT, user_id INTEGER)')
-    wall_msgs = sql.execute(
-        'SELECT date, user_id, user_msg FROM wall ORDER BY id DESC LIMIT 6').fetchall()  # ВЫВОДИМ 6 последних СООБЩЕНИЙ
-    for m in reversed(wall_msgs):  # СНАЧАЛА получаем имя пользователей по их id из таблицы users
-        name = sql.execute('SELECT name FROM users WHERE id=(?)', (m[1],)).fetchone()[0];  # print (name)
-        bot.send_message(message.chat.id,
-                         f'date:{m[0]} <b>{name}</b> Написал:\n {m[2]}');  # print(m)# Вывели все сообщения
-    ans = bot.send_message(message.chat.id, "<b><u>Выберите действие></u></b>", reply_markup=markup)
+
+    markup1 = types.InlineKeyboardMarkup(row_width=2)
+    item1 = types.InlineKeyboardButton("< Листать влево ", callback_data='wall_left')
+    item2 = types.InlineKeyboardButton("  Листать вправо > ", callback_data='wall_right')
+    markup1.add(item1, item2)
+
+    bot.send_message(message.chat.id, get_wall_msg_from_DB(), reply_markup=markup1);
+    # Вывели все сообщения с кнопками влево и вправо
+
+    markup2 = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup2.add('Добавить объявление', 'В главное меню')
+    ans = bot.send_message(message.chat.id, "<b><u>Выберите действие></u></b>", reply_markup=markup2)
     bot.register_next_step_handler(ans, add_wall_msg1)
+
+offset=0
+@bot.callback_query_handler(func=lambda call: call.data.startswith('wall'))  # Обрабатваем все что начинается с wall
+def callback_inline(call):
+    global offset;
+    markup1 = types.InlineKeyboardMarkup(row_width=2)
+    item1 = types.InlineKeyboardButton("< Листать влево ", callback_data='wall_left')
+    item2 = types.InlineKeyboardButton("  Листать вправо > ", callback_data='wall_right')
+    markup1.add(item1, item2)
+    try:
+
+        if call.data == 'wall_left':
+            offset +=1
+            print('Pressed left. Offset=', offset)
+        elif call.data == 'wall_right':
+            offset -= 1
+            print('Pressed Right. Offset=', offset)
+        bot.edit_message_text(get_wall_msg_from_DB(offset), call.message.chat.id,call.message.message_id, reply_markup=markup1)
+    except:
+        bot.edit_message_text("Попробуйте листать в другую сторону"+str(offset), call.message.chat.id, call.message.message_id, reply_markup=markup1)
+
 
 
 def add_wall_msg1(message):
-    if message.text == 'В главное меню':
-        welcome(message);
-        return;
-    elif message.text == 'Добавить объявление':
+    # if message.text == 'В главное меню': welcome(message); return;
+    if message.text == 'Добавить объявление':
         ans = bot.send_message(message.chat.id, "Напишите сообщение");
         bot.register_next_step_handler(ans, add_wall_msg2);  # print ("а что в ans на этом этапе?",ans)
     else:
-        welcome(message)
+        welcome(message);
+        return;
 
 
 def add_wall_msg2(message):
@@ -612,12 +652,21 @@ def best_score(message):
         'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY , name TEXT, score INTEGER DEFAULT (0), grade INTEGER)')
     best_sorted = sql.execute('SELECT name, score FROM users ORDER BY score DESC').fetchall();
     if len(best_sorted) == 0: bot.send_message(message.chat.id, 'Нет никого'); return;
-    ttt = '';
+    all = ''
     place = 1
     for person in best_sorted:
-        ttt += str(place) + 'место <b>' + person[0] + '</b>      очков:    ' + str(person[1]) + '\n';
+        line = ''
+
+        line = str(place) + 'место <b>' + person[0] + '</b>'  # person[0] здесь имя человека
+        if place == 1: line += "🥇"
+        if place == 2: line += "🥈"
+        if place == 3: line += "🥉"
+
+        while len(line) < 45:  line += " "  # делаем все сторки одинаковой длинны (но шрифт разноширинный все равно((( )
+        line += 'очков: ' + str(person[1]) + "\n"
         place += 1;
-    bot.send_message(message.chat.id, ttt)
+        all += line
+    bot.send_message(message.chat.id, all)
 
 
 # ------------------------НАЧАЛО РАБОТЫ С БУДИЛЬНИКАМИ
@@ -683,8 +732,8 @@ def callback_inline(call):
 def thread_function():
     print('запустился поток (thread). ')
     # По запланированному времени вызываем ф-цию, в которой проверим статус подписчиков и разошлем им уведомления
-    #schedule.every(5).seconds.do(send_alarms_to_all_subscribers,'5 секунд прошло')
-    if True: # Отключить все планировщики
+    # schedule.every(5).seconds.do(send_alarms_to_all_subscribers,'5 секунд прошло')
+    if True:  # Отключить все планировщики
         schedule.every().day.at("08:27").do(send_alarms_to_all_subscribers, "3 минуты до начала 1 урока")
         schedule.every().day.at("09:27").do(send_alarms_to_all_subscribers, "3 минуты до начала 2 урока")
         schedule.every().day.at("10:27").do(send_alarms_to_all_subscribers, "3 минуты до начала 3 урока")
@@ -706,17 +755,18 @@ def thread_function():
     print('конец потока', message.from_user.id)
 
 
-def send_alarms_to_all_subscribers(alarm_text='ALARM!!'):  # вызывается по расписанию и рассылает уведомления подписчикам
-    db = sqlite3.connect('db.db');    sql = db.cursor() # выбираем кто подписан и БД
+def send_alarms_to_all_subscribers(
+        alarm_text='ALARM!!'):  # вызывается по расписанию и рассылает уведомления подписчикам
+    db = sqlite3.connect('db.db');
+    sql = db.cursor()  # выбираем кто подписан и БД
     list_of_subscribers = sql.execute('SELECT id FROM alarms where alarm=1').fetchall()
 
-    for user_id in  list_of_subscribers:
-        print(user_id[0])
+    for user_id in list_of_subscribers:
+        # print(user_id[0])
         try:
-            bot.send_message(user_id[0], alarm_text )
-        except: # послать мне сообщения об ошибках посылки уведомлений(можно удалить и поставить except: pass)
+            bot.send_message(user_id[0], alarm_text)
+        except:  # послать мне сообщения об ошибках посылки уведомлений(можно удалить и поставить except: pass)
             bot.send_message(1680608864, f'User {user_id[0]} not found for notification {alarm_text}')
-
 
 
 # ------------------------КОНЕЦ РАБОТЫ С БУДИЛЬНИКАМИ
@@ -798,7 +848,7 @@ while True:
         # bot.polling(none_stop=True)
         # отправляем на запуск функцию thread_function в отдельный поток для планировщика звонков
         x = threading.Thread(target=thread_function)
-        if x.is_alive()==False:
+        if x.is_alive() == False:
             x.start()  # и запускаем его
             print("Start threading")
         print("Start polling")
